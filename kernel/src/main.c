@@ -65,6 +65,22 @@ void kmain(void) {
     uint32_t green = 0x0000ff00U;
     display_str(framebuffer, "Booted successfully.\n", green);
     display_str(framebuffer, "Hello, world!\n", white);
+    
+    // Printing numbers
+    uint32_t red = 0x00ff0000U;
+    display_str(framebuffer, "Framebuffer address: ", white);
+    display_str(framebuffer, "0x", red);
+    display_hex(framebuffer, (uint64_t)framebuffer->address, red);
+    display_str(framebuffer, "\n", white);
+
+    display_str(framebuffer, "Framebuffer memory model: ", white);
+    display_str(framebuffer, "0b", red);
+    display_bin(framebuffer, framebuffer->memory_model, red);
+    display_str(framebuffer, "\n", white);
+
+    display_str(framebuffer, "Framebuffer bits per pixel: ", white);
+    display_dec(framebuffer, framebuffer->bpp, red);
+    display_str(framebuffer, "\n", white);
 
     // We're done, just hang...
     halt();
