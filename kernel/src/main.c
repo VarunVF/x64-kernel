@@ -5,6 +5,7 @@
 #include "../limine-protocol/include/limine.h"
 
 #include "video.h"
+#include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -36,7 +37,7 @@ static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARK
 // Halt function.
 static void halt(void) {
     for (;;) {
-        asm ("hlt");
+        __asm__ volatile ("hlt");
     }
 }
 
@@ -60,27 +61,34 @@ void kmain(void) {
     uint32_t clear_color = 0x000077U;
     clear(framebuffer, clear_color);
 
-    // Print a string to the screen
+    // Colors used for printing
     uint32_t white = 0x00ffffffU;
     uint32_t green = 0x0000ff00U;
-    display_str(framebuffer, "Booted successfully.\n", green);
+    uint32_t red = 0x00ff0000U;
+    
+    // Print a string to the screen
     display_str(framebuffer, "Hello, world!\n", white);
     
-    // Printing numbers
-    uint32_t red = 0x00ff0000U;
     display_str(framebuffer, "Framebuffer address: ", white);
     display_str(framebuffer, "0x", red);
     display_hex(framebuffer, (uint64_t)framebuffer->address, red);
     display_str(framebuffer, "\n", white);
 
-    display_str(framebuffer, "Framebuffer memory model: ", white);
-    display_str(framebuffer, "0b", red);
-    display_bin(framebuffer, framebuffer->memory_model, red);
-    display_str(framebuffer, "\n", white);
-
     display_str(framebuffer, "Framebuffer bits per pixel: ", white);
     display_dec(framebuffer, framebuffer->bpp, red);
     display_str(framebuffer, "\n", white);
+
+    // Test outputting a string to serial port
+    const char* message = "Hello serial";
+    const uint16_t com1 = 0x3f8;
+    if (init_serial(com1) == 0) {
+        display_str(framebuffer, "Serial port initialised\n", green);
+        
+        while (*message) {
+            write_serial(com1, *message);
+            message++;
+        }
+    };
 
     // We're done, just hang...
     halt();

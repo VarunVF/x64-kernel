@@ -23,7 +23,7 @@ void clear(struct limine_framebuffer* framebuffer, uint32_t color) {
     }
 }
 
-void put_pixel(struct limine_framebuffer* framebuffer, int pos_x, int pos_y, uint32_t color) {
+void put_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint32_t pos_y, uint32_t color) {
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
 
     if (pos_x >= framebuffer->width || pos_y >= framebuffer->height) {
