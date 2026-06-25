@@ -4,7 +4,7 @@
 
 #include "../limine-protocol/include/limine.h"
 
-#include "video.h"
+#include "display.h"
 #include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
@@ -57,38 +57,37 @@ void kmain(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
-    // Clear the screen with a solid color
-    uint32_t clear_color = 0x000077U;
-    clear(framebuffer, clear_color);
-
     // Colors used for printing
+    uint32_t clear_color = 0x000077U;
     uint32_t white = 0x00ffffffU;
     uint32_t green = 0x0000ff00U;
     uint32_t red = 0x00ff0000U;
-    
-    // Print a string to the screen
+
+    display_clear(framebuffer, clear_color);
     display_str(framebuffer, "Hello, world!\n", white);
     
-    display_str(framebuffer, "Framebuffer address: ", white);
-    display_str(framebuffer, "0x", red);
-    display_hex(framebuffer, (uint64_t)framebuffer->address, red);
-    display_str(framebuffer, "\n", white);
+    // Test char outside the font data values
+    display_str(framebuffer, "Test invalid char display: ", white);
+    display_char(framebuffer, -1, red);
+    display_char(framebuffer, '\n', white);
 
-    display_str(framebuffer, "Framebuffer bits per pixel: ", white);
-    display_dec(framebuffer, framebuffer->bpp, red);
-    display_str(framebuffer, "\n", white);
-
-    // Test outputting a string to serial port
-    const char* message = "Hello serial";
-    const uint16_t com1 = 0x3f8;
-    if (init_serial(com1) == 0) {
+    // Output to serial port
+    const uint16_t port = SERIAL_COM1;
+    if (serial_init(port) == 0) {
         display_str(framebuffer, "Serial port initialised\n", green);
-        
-        while (*message) {
-            write_serial(com1, *message);
-            message++;
-        }
-    };
+
+        serial_write_str(port, "Framebuffer address: 0x");
+        serial_write_hex(port, (uint64_t)framebuffer->address);
+        serial_write_char(port, '\n');
+        serial_write_str(port, "Framebuffer dimensions: ");
+        serial_write_dec(port, framebuffer->width);
+        serial_write_char(port, 'x');
+        serial_write_dec(port, framebuffer->height);
+        serial_write_char(port, '\n');
+        serial_write_str(port, "Framebuffer bits per pixel: ");
+        serial_write_dec(port, framebuffer->bpp);
+        serial_write_char(port, '\n');
+    }
 
     // We're done, just hang...
     halt();
