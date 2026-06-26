@@ -5,6 +5,7 @@
 #include "../limine-protocol/include/limine.h"
 
 #include "display.h"
+#include "gdt.h"
 #include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
@@ -66,28 +67,18 @@ void kmain(void) {
     display_clear(framebuffer, clear_color);
     display_str(framebuffer, "Hello, world!\n", white);
     
-    // Test char outside the font data values
-    display_str(framebuffer, "Test invalid char display: ", white);
-    display_char(framebuffer, -1, red);
-    display_char(framebuffer, '\n', white);
-
-    // Output to serial port
+    // Setup serial port for output
     const uint16_t port = SERIAL_COM1;
     if (serial_init(port) == 0) {
         display_str(framebuffer, "Serial port initialised\n", green);
-
-        serial_write_str(port, "Framebuffer address: 0x");
-        serial_write_hex(port, (uint64_t)framebuffer->address);
-        serial_write_char(port, '\n');
-        serial_write_str(port, "Framebuffer dimensions: ");
-        serial_write_dec(port, framebuffer->width);
-        serial_write_char(port, 'x');
-        serial_write_dec(port, framebuffer->height);
-        serial_write_char(port, '\n');
-        serial_write_str(port, "Framebuffer bits per pixel: ");
-        serial_write_dec(port, framebuffer->bpp);
-        serial_write_char(port, '\n');
+    } else {
+        display_str(framebuffer, "Failed to initialise serial port\n", red);
+        halt();
     }
+
+    // Load GDT
+    gdt_init();
+    serial_write_str(port, "GDT initialised\n");
 
     // We're done, just hang...
     halt();
