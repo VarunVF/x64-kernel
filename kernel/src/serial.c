@@ -1,23 +1,6 @@
 #include "serial.h"
 
-// Input a byte from a serial port
-static inline uint8_t inb(uint16_t port) {
-    uint8_t ret;
-    __asm__ volatile ("inb %[src_port], %[dest_reg]" 
-        : [dest_reg] "=a"(ret) 
-        : [src_port] "Nd"(port) 
-    );
-    return ret;
-}
-
-// Output a byte to a serial port
-static inline void outb(uint16_t port, uint8_t value) {
-    __asm__ volatile ("outb %[data], %[dest_port]" 
-        : // No outputs
-        : [data] "a"(value), [dest_port] "Nd"(port) 
-    );
-}
-
+#include "io.h"
 
 int serial_init(uint16_t port) {
     outb(port + 1, 0x00);  // Disable all interrupts
@@ -86,6 +69,11 @@ void serial_write_dec(uint16_t port, uint64_t number) {
     // so we need space for at most 20 characters.
     char digits[20] = {0};
     int current_digit = 0;
+
+    if (number == 0) {
+        serial_write_char(port, '0');
+        return;
+    }
 
     // Append the digits from right to left.
     while (number > 0) {

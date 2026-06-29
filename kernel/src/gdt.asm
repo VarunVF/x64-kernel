@@ -1,7 +1,7 @@
 global gdt_flush
 
 ; Point the CPU to the GDT, and reload data segment registers.
-; rdi = pointer to struct gdt_ptr
+; rdi = pointer to struct gdt_pointer
 gdt_flush:
     lgdt [rdi]
     

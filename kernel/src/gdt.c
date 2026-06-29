@@ -22,15 +22,13 @@ void gdt_init() {
 }
 
 void gdt_set_gate(uint32_t index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-    struct gdt_entry* entry = gdt + index;
+    gdt[index].base_low = base & 0xFFFF;
+    gdt[index].base_middle = (base >> 16) & 0xFF;
+    gdt[index].base_high = (base >> 24) & 0xFF;
 
-    entry->base_low = base & 0xFFFF;
-    entry->base_middle = (base >> 16) & 0xFF;
-    entry->base_high = (base >> 24) & 0xFF;
-    
-    entry->limit = limit & 0xFFFF;
-    entry->flags = (limit >> 16) & 0x0F;
-    entry->flags |= gran & 0xF0;
+    gdt[index].limit = limit & 0xFFFF;
+    gdt[index].flags = (limit >> 16) & 0x0F;
 
-    entry->access = access;
+    gdt[index].flags |= gran & 0xF0;
+    gdt[index].access = access;
 }

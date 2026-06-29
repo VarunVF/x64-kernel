@@ -6,6 +6,7 @@
 
 #include "display.h"
 #include "gdt.h"
+#include "interrupts/idt.h"
 #include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
@@ -79,6 +80,10 @@ void kmain(void) {
     // Load GDT
     gdt_init();
     serial_write_str(port, "GDT initialised\n");
+
+    // Load IDT
+    idt_init();
+    serial_write_str(port, "IDT initialised\n");
 
     // We're done, just hang...
     halt();
