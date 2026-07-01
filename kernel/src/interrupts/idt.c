@@ -31,10 +31,12 @@ static void pic_remap(int offset1, int offset2) {
 
     outb_and_wait(PIC1_DATA, ICW4_8086);
     outb_and_wait(PIC2_DATA, ICW4_8086);
+}
 
-    // Unmask both PICs
-    outb_and_wait(PIC1_DATA, 0);
-    outb_and_wait(PIC2_DATA, 0);
+// Mask (disable) all PIC lines
+static void pic_mask() {
+    outb_and_wait(PIC1_DATA, 0xFF);
+    outb_and_wait(PIC2_DATA, 0xFF);
 }
 
 void idt_init() {
@@ -44,6 +46,7 @@ void idt_init() {
     memset(&idt, 0, sizeof(idt));
 
     pic_remap(PIC1_OFFSET, PIC2_OFFSET);
+    pic_mask();
 
     for (int i = 0; i < 48; i++) {
         // 0x08 -> 0000 1000 (GDT code segment)

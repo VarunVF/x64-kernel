@@ -1,6 +1,4 @@
 #include "idt.h"
-#include "../io.h"
-#include "pic.h"
 #include "../serial.h"
 
 const char* exception_descriptions[32] = {
@@ -70,15 +68,9 @@ static void dump_registers(struct interrupt_registers* regs) {
     dump_register("r15", regs->r15);
 }
 
-static void pic_send_eoi(uint8_t interrupt_number) {
-    uint8_t irq = interrupt_number - PIC1_OFFSET;
-
-    // If the IRQ came from the Slave PIC, we need to also inform the Master PIC.
-    if (irq >= 8) {
-        outb(PIC2_COMMAND, PIC_EOI);
-    }
-
-    outb(PIC1_COMMAND, PIC_EOI);
+// Signal end of interrupt to the LAPIC
+static void lapic_send_eoi() {
+    // TODO
 }
 
 void interrupt_handler(struct interrupt_registers* regs) {
@@ -100,7 +92,6 @@ void interrupt_handler(struct interrupt_registers* regs) {
         // Hardware interrupt
         // TODO: handle...
 
-        // Tell the PIC that we have handled the interrupt
-        pic_send_eoi(regs->interrupt_number);
+        lapic_send_eoi();
     }
 }

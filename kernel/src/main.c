@@ -4,6 +4,7 @@
 
 #include "../limine-protocol/include/limine.h"
 
+#include "acpi/rsdp.h"
 #include "display.h"
 #include "gdt.h"
 #include "interrupts/idt.h"
@@ -25,6 +26,19 @@ __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
     .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST_ID,
+    .revision = 0,
+};
+uint64_t hhdm_offset = 0;
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_rsdp_request rsdp_request = {
+    .id = LIMINE_RSDP_REQUEST_ID,
+    .revision = 0,
 };
 
 // Finally, define the start and end markers for the Limine requests.
@@ -55,6 +69,14 @@ void kmain(void) {
      || framebuffer_request.response->framebuffer_count < 1) {
         halt();
     }
+    // Verify HHDM request
+    if (hhdm_request.response == NULL) {
+        halt();
+    }
+    // Ensure RSDP was found
+    if (rsdp_request.response == NULL) {
+        halt();
+    }
 
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
@@ -69,21 +91,36 @@ void kmain(void) {
     display_str(framebuffer, "Hello, world!\n", white);
     
     // Setup serial port for output
-    const uint16_t port = SERIAL_COM1;
-    if (serial_init(port) == 0) {
+    if (serial_init(SERIAL_COM1) == 0) {
         display_str(framebuffer, "Serial port initialised\n", green);
     } else {
         display_str(framebuffer, "Failed to initialise serial port\n", red);
         halt();
     }
 
+    // Higher-half mapping offset
+    hhdm_offset = hhdm_request.response->offset;
+    serial_write_str(SERIAL_COM1, "Higher-half offset: ");
+    serial_write_hex(SERIAL_COM1, hhdm_offset);
+    serial_write_str(SERIAL_COM1, "\n");
+
     // Load GDT
     gdt_init();
-    serial_write_str(port, "GDT initialised\n");
+    serial_write_str(SERIAL_COM1, "GDT initialised\n");
 
     // Load IDT
     idt_init();
-    serial_write_str(port, "IDT initialised\n");
+    serial_write_str(SERIAL_COM1, "IDT initialised\n");
+
+    void* rsdp_addr = rsdp_request.response->address;
+    serial_write_str(SERIAL_COM1, "RSDP found at ");
+    serial_write_hex(SERIAL_COM1, (uint64_t)rsdp_addr);
+    serial_write_str(SERIAL_COM1, "\n");
+    struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
+    if (!rsdp_info.parse_successful) {
+        serial_write_str(SERIAL_COM1, "Failed to parse RSDP\n");
+        halt();
+    }
 
     // We're done, just hang...
     halt();
