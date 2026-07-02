@@ -5,9 +5,10 @@
 #include "../limine-protocol/include/limine.h"
 
 #include "acpi/rsdp.h"
-#include "display.h"
+#include "render.h"
 #include "gdt.h"
 #include "interrupts/idt.h"
+#include "kprint.h"
 #include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
@@ -57,6 +58,20 @@ static void halt(void) {
     }
 }
 
+void serial_putc(char c) {
+    // Some serial output displays need carriage return
+    if (c == '\n') {
+        serial_write_char(SERIAL_COM1, '\r');
+    }
+
+    serial_write_char(SERIAL_COM1, c);
+}
+
+void render_putc(char c) {
+    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    render_char(framebuffer, c, 0x00ffffff);
+}
+
 // Our kernel's entry point.
 void kmain(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
@@ -82,43 +97,38 @@ void kmain(void) {
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
     // Colors used for printing
-    uint32_t clear_color = 0x000077U;
-    uint32_t white = 0x00ffffffU;
-    uint32_t green = 0x0000ff00U;
-    uint32_t red = 0x00ff0000U;
+    const uint32_t clear_color = 0x000077U;
+    const uint32_t white = 0x00ffffffU;
+    const uint32_t red = 0x00ff0000U;
 
-    display_clear(framebuffer, clear_color);
-    display_str(framebuffer, "Hello, world!\n", white);
-    
+    render_clear(framebuffer, clear_color);
+    kprint_add_output(render_putc);
+
     // Setup serial port for output
     if (serial_init(SERIAL_COM1) == 0) {
-        display_str(framebuffer, "Serial port initialised\n", green);
+        kprint_add_output(serial_putc);
+        kprintf("Serial port initialised\n");
     } else {
-        display_str(framebuffer, "Failed to initialise serial port\n", red);
-        halt();
+        render_str(framebuffer, "Failed to initialise serial port\n", red);
     }
 
     // Higher-half mapping offset
     hhdm_offset = hhdm_request.response->offset;
-    serial_write_str(SERIAL_COM1, "Higher-half offset: ");
-    serial_write_hex(SERIAL_COM1, hhdm_offset);
-    serial_write_str(SERIAL_COM1, "\n");
+    kprintf("Higher-half offset: %p\n", (void*)hhdm_offset);
 
     // Load GDT
     gdt_init();
-    serial_write_str(SERIAL_COM1, "GDT initialised\n");
+    kprintf("GDT initialised\n");
 
     // Load IDT
     idt_init();
-    serial_write_str(SERIAL_COM1, "IDT initialised\n");
+    kprintf("IDT initialised\n");
 
     void* rsdp_addr = rsdp_request.response->address;
-    serial_write_str(SERIAL_COM1, "RSDP found at ");
-    serial_write_hex(SERIAL_COM1, (uint64_t)rsdp_addr);
-    serial_write_str(SERIAL_COM1, "\n");
+    kprintf("RSDP found at %p\n", rsdp_addr);
     struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
     if (!rsdp_info.parse_successful) {
-        serial_write_str(SERIAL_COM1, "Failed to parse RSDP\n");
+        kprintf("Failed to parse RSDP\n");
         halt();
     }
 

@@ -1,4 +1,4 @@
-#include "display.h"
+#include "render.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -11,9 +11,9 @@ struct position {
     int x;
     int y;
 };
-static struct position display_pos = {0, 0};
+static struct position render_pos = {0, 0};
 
-void display_clear(struct limine_framebuffer* framebuffer, uint32_t color) {
+void render_clear(struct limine_framebuffer* framebuffer, uint32_t color) {
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
     uint32_t *fb_ptr = framebuffer->address;
     for (size_t y = 0; y < framebuffer->height; y++) {
@@ -23,7 +23,7 @@ void display_clear(struct limine_framebuffer* framebuffer, uint32_t color) {
     }
 }
 
-void display_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint32_t pos_y, uint32_t color) {
+void render_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint32_t pos_y, uint32_t color) {
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
 
     if (pos_x >= framebuffer->width || pos_y >= framebuffer->height) {
@@ -34,13 +34,13 @@ void display_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint3
     fb_ptr[pos_y * (framebuffer->pitch / 4) + pos_x] = color;
 }
 
-void display_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t color) {
-    uint32_t start_x = display_pos.x * 8;
-    uint32_t start_y = display_pos.y * 8;
+void render_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t color) {
+    uint32_t start_x = render_pos.x * 8;
+    uint32_t start_y = render_pos.y * 8;
 
     if (glyph == '\n') {
-        display_pos.x = 0;
-        display_pos.y++;
+        render_pos.x = 0;
+        render_pos.y++;
         return;
     }
 
@@ -58,39 +58,39 @@ void display_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t c
         for (uint8_t i = 0; i < 8; i++) {
             if ((glyph_data[l] & (1 << i))) {
                 uint32_t current_x = start_x + i;
-                display_pixel(framebuffer, current_x, current_y, color);
+                render_pixel(framebuffer, current_x, current_y, color);
             }
         }
     }
 
-    display_pos.x++;
+    render_pos.x++;
 }
 
-void display_str(struct limine_framebuffer* framebuffer, const char* str, uint32_t color) {
+void render_str(struct limine_framebuffer* framebuffer, const char* str, uint32_t color) {
     if (str == NULL) {
         return;
     }
 
     char current;
     while ((current = *str) != '\0') {
-        display_char(framebuffer, current, color);
+        render_char(framebuffer, current, color);
         str++;
     }
 }
 
-void display_bin(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
+void render_bin(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
     const int total_bits = sizeof(number) * 8;
     for (int i = total_bits - 1; i >= 0; i--) {
         int bit = (number >> i) & 1;
         if (bit) {
-            display_char(framebuffer, '1', color);
+            render_char(framebuffer, '1', color);
         } else {
-            display_char(framebuffer, '0', color);
+            render_char(framebuffer, '0', color);
         }
     }
 }
 
-void display_hex(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
+void render_hex(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
     const int total_bytes = sizeof(number);
     const int hex_digits = total_bytes * 2;
     const char hex_table[16] = {
@@ -99,11 +99,11 @@ void display_hex(struct limine_framebuffer* framebuffer, uint64_t number, uint32
     };
     for (int i = hex_digits - 1; i >= 0; i--) {
         int digit = (number >> i * 4) & 0xf;
-        display_char(framebuffer, hex_table[digit], color);
+        render_char(framebuffer, hex_table[digit], color);
     }
 }
 
-void display_dec(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
+void render_dec(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
     // UINT64_MAX (18446744073709551615UL) has 20 decimal digits,
     // so we need space for at most 20 characters.
     char digits[20] = {0};
@@ -118,6 +118,6 @@ void display_dec(struct limine_framebuffer* framebuffer, uint64_t number, uint32
 
     // Print the digits in reverse order.
     while (current_digit--) {
-        display_char(framebuffer, digits[current_digit], color);
+        render_char(framebuffer, digits[current_digit], color);
     }
 }

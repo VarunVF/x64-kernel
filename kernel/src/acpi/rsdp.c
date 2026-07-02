@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "madt.h"
+#include "../kprint.h"
 #include "../memory.h"
 #include "../serial.h"
 #include "../util.h"
@@ -34,28 +35,28 @@ static bool rsdp_validate_checksum(const struct rsdp* rsdp_ptr, bool is_extended
 
 struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr) {
     if (memcmp(rsdp_ptr, "RSD PTR ", 8) != 0) {
-        serial_write_str(SERIAL_COM1, "RSDP signature not found\n");
+        kprintf("RSDP signature not found\n");
         return rsdp_failed_result;
     }
-    serial_write_str(SERIAL_COM1, "RSDP signature found\n");
+    kprintf("RSDP signature found\n");
 
     bool is_extended = false;
     if (rsdp_ptr->revision == 0) {
-        serial_write_str(SERIAL_COM1, "ACPI v1.0\n");
+        kprintf("ACPI v1.0\n");
         is_extended = false;
     } else if (rsdp_ptr->revision == 2) {
-        serial_write_str(SERIAL_COM1, "ACPI v2.0+\n");
+        kprintf("ACPI v2.0+\n");
         is_extended = true;
     } else {
-        serial_write_str(SERIAL_COM1, "RSDP revision is invalid\n");
+        kprintf("RSDP revision is invalid\n");
         return rsdp_failed_result;
     }
 
     if (!rsdp_validate_checksum(rsdp_ptr, is_extended)) {
-        serial_write_str(SERIAL_COM1, "RSDP checksum is invalid\n");
+        kprintf("RSDP checksum is invalid\n");
         return rsdp_failed_result;
     }
-    serial_write_str(SERIAL_COM1, "RSDP checksum validated\n");
+    kprintf("RSDP checksum validated\n");
 
     if (is_extended) {
         struct xsdp* xsdp_ptr = (struct xsdp*)rsdp_ptr;
@@ -68,22 +69,20 @@ struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr) {
 }
 
 struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extended) {
-    serial_write_str(SERIAL_COM1, "Parsing RSDT/XSDT\n");
+    kprintf("Parsing RSDT/XSDT\n");
 
     if (!acpi_checksum(rsdt_ptr, rsdt_ptr->header.length)) {
-        serial_write_str(SERIAL_COM1, "RSDT/XSDT checksum is invalid\n");
+        kprintf("RSDT/XSDT checksum is invalid\n");
         return rsdp_failed_result;
     }
-    serial_write_str(SERIAL_COM1, "RSDT/XSDT checksum validated\n");
+    kprintf("RSDT/XSDT checksum validated\n");
 
     struct madt* madt_ptr = rsdt_find_table(rsdt_ptr, "APIC", is_extended);
     if (madt_ptr == NULL) {
-        serial_write_str(SERIAL_COM1, "MADT not found\n");
+        kprintf("MADT not found\n");
         return rsdp_failed_result;
     }
-    serial_write_str(SERIAL_COM1, "MADT found at ");
-    serial_write_hex(SERIAL_COM1, (uint64_t)madt_ptr);
-    serial_write_str(SERIAL_COM1, "\n");
+    kprintf("MADT found at %p\n", (void*)madt_ptr);
     struct madt_parse_result madt_info = madt_parse(madt_ptr);
     return (struct rsdp_parse_result){
         madt_info.parse_successful,
