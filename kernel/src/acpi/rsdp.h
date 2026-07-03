@@ -44,7 +44,7 @@ struct xsdt {
 
 struct rsdp_parse_result {
     bool parse_successful;
-    void* lapic_base;
+    uint32_t lapic_base;
 };
 
 struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr);

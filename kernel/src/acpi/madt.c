@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "../kprint.h"
-#include "../util.h"
 
 const struct madt_parse_result madt_failed_result = {
     false,
@@ -21,8 +20,8 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
     }
     kprintf("MADT checksum validated\n");
 
-    uint64_t local_apic_addr = phys_to_virt(madt_ptr->local_apic_address);
-    kprintf("Local APIC address: %p\n", (void*)local_apic_addr);
+    uint32_t local_apic_addr = madt_ptr->local_apic_address;
+    kprintf("Local APIC address: %p\n", (uint64_t)local_apic_addr);
     
     uint8_t* start = (uint8_t*)madt_ptr->records;
     uint8_t* end = start + madt_ptr->header.length;
@@ -72,6 +71,6 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
 
     return (struct madt_parse_result){
         true,
-        (void*)local_apic_addr
+        local_apic_addr
     };
 }

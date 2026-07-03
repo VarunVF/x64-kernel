@@ -52,7 +52,7 @@ struct madt {
 
 struct madt_parse_result {
     bool parse_successful;
-    void* lapic_base;
+    uint32_t lapic_base;
 };
 
 struct madt_parse_result madt_parse(const struct madt* madt_ptr);
