@@ -9,7 +9,9 @@
 #include "gdt.h"
 #include "interrupts/idt.h"
 #include "kprint.h"
+#include "pmm.h"
 #include "serial.h"
+#include "util.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -98,7 +100,6 @@ void kmain(void) {
 
     // Colors used for printing
     const uint32_t clear_color = 0x000077U;
-    const uint32_t white = 0x00ffffffU;
     const uint32_t red = 0x00ff0000U;
 
     render_clear(framebuffer, clear_color);
@@ -131,6 +132,31 @@ void kmain(void) {
         kprintf("Failed to parse RSDP\n");
         halt();
     }
+
+    // Physical Memory Manager
+    if (pmm_init() != 0) {
+        kprintf("Failed to initialise PMM\n");
+        halt();
+    }
+    kprintf("Initialised PMM\n");
+    if (!pmm_verify_bitmap()) {
+        halt();
+    }
+
+    uint64_t alloc_size = 16;
+    uint64_t phys_ptr = pmm_alloc(alloc_size);
+    kprintf("PMM allocated phys %p\n", phys_ptr);
+    
+    // Try to use the memory
+    if (phys_ptr != 0) {
+        uint8_t* virt_ptr = (uint8_t*)phys_to_virt(phys_ptr);
+        for (int i = 0; i < alloc_size * PMM_FRAME_SIZE; i++) {
+            virt_ptr[i] = 0xFF;
+        }
+    }
+    
+    pmm_free(phys_ptr, alloc_size);
+    kprintf("PMM freed phys %p\n", phys_ptr);
 
     // We're done, just hang...
     halt();
