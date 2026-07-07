@@ -4,15 +4,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "acpi.h"
 #include "madt.h"
 #include "../kprint.h"
 #include "../memory.h"
-#include "../serial.h"
 #include "../util.h"
 
 const struct rsdp_parse_result rsdp_failed_result = {
     false,
-    NULL
+    0
 };
 
 static bool rsdp_validate_checksum(const struct rsdp* rsdp_ptr, bool is_extended) {
@@ -77,7 +77,7 @@ struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extende
     }
     kprintf("RSDT/XSDT checksum validated\n");
 
-    struct madt* madt_ptr = rsdt_find_table(rsdt_ptr, "APIC", is_extended);
+    const struct madt* madt_ptr = sdt_find_table(rsdt_ptr, "APIC", is_extended);
     if (madt_ptr == NULL) {
         kprintf("MADT not found\n");
         return rsdp_failed_result;
@@ -90,19 +90,24 @@ struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extende
     };
 }
 
-void* rsdt_find_table(const struct rsdt* rsdt_ptr, const char* signature, bool is_extended) {
-    struct rsdt* rsdt = (struct rsdt*)rsdt_ptr;
-    int entries = 0;
+const void* sdt_find_table(const void* sdt_ptr, const char* signature, bool is_extended) {
     if (is_extended) {
-        entries = (rsdt->header.length - sizeof(rsdt->header)) / 8;
+        const struct xsdt* xsdt_ptr = (const struct xsdt*)sdt_ptr;
+        int entries = (xsdt_ptr->header.length - sizeof(xsdt_ptr->header)) / 8;
+        for (int i = 0; i < entries; i++) {
+            const struct acpi_sdt_header* header = (struct acpi_sdt_header*)phys_to_virt(xsdt_ptr->pointer_to_other_sdt[i]);
+            if (memcmp(header->signature, signature, 4) == 0) {
+                return header;
+            }
+        }
     } else {
-        entries = (rsdt->header.length - sizeof(rsdt->header)) / 4;
-    }
-
-    for (int i = 0; i < entries; i++) {
-        struct acpi_sdt_header* header = (struct acpi_sdt_header*)phys_to_virt(rsdt->pointer_to_other_sdt[i]);
-        if (memcmp(header->signature, signature, 4) == 0) {
-            return header;
+        const struct rsdt* rsdt_ptr = (const struct rsdt*)sdt_ptr;
+        int entries = (rsdt_ptr->header.length - sizeof(rsdt_ptr->header)) / 4;
+        for (int i = 0; i < entries; i++) {
+            const struct acpi_sdt_header* header = (struct acpi_sdt_header*)phys_to_virt(rsdt_ptr->pointer_to_other_sdt[i]);
+            if (memcmp(header->signature, signature, 4) == 0) {
+                return header;
+            }
         }
     }
 

@@ -8,7 +8,7 @@
 
 const struct madt_parse_result madt_failed_result = {
     false,
-    NULL
+    0
 };
 
 struct madt_parse_result madt_parse(const struct madt* madt_ptr) {

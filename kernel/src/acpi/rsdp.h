@@ -49,6 +49,6 @@ struct rsdp_parse_result {
 
 struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr);
 struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extended);
-void* rsdt_find_table(const struct rsdt* rsdt_ptr, const char* signature, bool is_extended);
+const void* sdt_find_table(const void* sdt_ptr, const char* signature, bool is_extended);
 
 #endif  // RSDP_H
