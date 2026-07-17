@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #include "../io.h"
-#include "../memory.h"
+#include "../memory/memory.h"
 #include "pic.h"
 
 struct idt_entry idt[256];

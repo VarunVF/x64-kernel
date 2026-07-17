@@ -4,11 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../limine-protocol/include/limine.h"
+#include "../../limine-protocol/include/limine.h"
 
-#include "kprint.h"
 #include "memory.h"
-#include "util.h"
+#include "../kprint.h"
+#include "../util.h"
 
 // Bitmap physical memory allocator
 
@@ -16,11 +16,7 @@
 #define PMM_USED_VALUE 1
 #define PMM_FREE_VALUE 0
 
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_memmap_request memmap_request = {
-    .id = LIMINE_MEMMAP_REQUEST_ID,
-    .revision = 0,
-};
+extern volatile struct limine_memmap_request memmap_request;
 
 static const char* memory_types[9] = {
     "USABLE",

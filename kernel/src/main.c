@@ -9,9 +9,9 @@
 #include "gdt.h"
 #include "interrupts/idt.h"
 #include "kprint.h"
-#include "pmm.h"
+#include "memory/pmm.h"
+#include "memory/vmm.h"
 #include "serial.h"
-#include "util.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -53,6 +53,9 @@ static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
+
+void kernel_init(void);
+
 // Halt function.
 static void halt(void) {
     for (;;) {
@@ -75,7 +78,7 @@ void render_putc(char c) {
 }
 
 // Our kernel's entry point.
-void kmain(void) {
+void kernel_start(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         halt();
@@ -125,14 +128,6 @@ void kmain(void) {
     idt_init();
     kprintf("IDT initialised\n");
 
-    void* rsdp_addr = rsdp_request.response->address;
-    kprintf("RSDP found at %p\n", rsdp_addr);
-    struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
-    if (!rsdp_info.parse_successful) {
-        kprintf("Failed to parse RSDP\n");
-        halt();
-    }
-
     // Physical Memory Manager
     if (pmm_init() != 0) {
         kprintf("Failed to initialise PMM\n");
@@ -143,21 +138,29 @@ void kmain(void) {
         halt();
     }
 
-    uint64_t alloc_size = 16;
-    uint64_t phys_ptr = pmm_alloc(alloc_size);
-    kprintf("PMM allocated phys %p\n", phys_ptr);
-    
-    // Try to use the memory
-    if (phys_ptr != 0) {
-        uint8_t* virt_ptr = (uint8_t*)phys_to_virt(phys_ptr);
-        for (int i = 0; i < alloc_size * PMM_FRAME_SIZE; i++) {
-            virt_ptr[i] = 0xFF;
-        }
+    // Virtual Memory Manager
+    kprintf("Initialising VMM...\n");
+    if (vmm_init() != 0) {
+        kprintf("Failed to initialise VMM\n");
+        halt();
     }
-    
-    pmm_free(phys_ptr, alloc_size);
-    kprintf("PMM freed phys %p\n", phys_ptr);
+    kprintf("Initialised VMM\n");
+    vmm_switch(kernel_init);
 
-    // We're done, just hang...
+    halt();
+}
+
+void kernel_init(void) {
+    kprintf("Switched to new stack and page tables\n");
+    
+    // Parse RSDP (for ACPI tables)
+    void* rsdp_addr = rsdp_request.response->address;
+    kprintf("RSDP found at %p\n", rsdp_addr);
+    struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
+    if (!rsdp_info.parse_successful) {
+        kprintf("Failed to parse RSDP\n");
+        halt();
+    }
+
     halt();
 }
