@@ -1,7 +1,7 @@
 #include "render.h"
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "../limine-protocol/include/limine.h"
 

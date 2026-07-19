@@ -7,8 +7,8 @@
 #include "acpi.h"
 #include "madt.h"
 #include "../kprint.h"
-#include "../memory/memory.h"
-#include "../util.h"
+#include "../kstring.h"
+#include "../memory/util.h"
 
 const struct rsdp_parse_result rsdp_failed_result = {
     false,

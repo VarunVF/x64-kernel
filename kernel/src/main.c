@@ -1,16 +1,16 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "../limine-protocol/include/limine.h"
 
 #include "acpi/rsdp.h"
-#include "render.h"
 #include "gdt.h"
 #include "interrupts/idt.h"
 #include "kprint.h"
 #include "memory/pmm.h"
 #include "memory/vmm.h"
+#include "render.h"
 #include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest

@@ -6,9 +6,9 @@
 
 #include "../../limine-protocol/include/limine.h"
 
-#include "memory.h"
+#include "util.h"
 #include "../kprint.h"
-#include "../util.h"
+#include "../kstring.h"
 
 // Bitmap physical memory allocator
 

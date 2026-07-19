@@ -6,10 +6,11 @@
 
 #include "../../limine-protocol/include/limine.h"
 
-#include "memory.h"
 #include "pmm.h"
+#include "util.h"
+#include "../arch/cpu.h"
 #include "../kprint.h"
-#include "../util.h"
+#include "../kstring.h"
 
 extern volatile struct limine_memmap_request memmap_request;
 
@@ -34,7 +35,7 @@ void vmm_switch_stack_and_cr3(uint64_t masked_pml4_phys, uint64_t new_rsp, void 
 static bool vmm_check_features() {
     uint32_t eax, ebx, ecx, edx;
     uint32_t max_phys_addr_leaf = 0x80000008;
-    if (!cpuid(max_phys_addr_leaf, &eax, &ebx, &ecx, &edx)) {
+    if (!cpu_cpuid(max_phys_addr_leaf, &eax, &ebx, &ecx, &edx)) {
         kprintf("Could not call cpuid with leaf %x\n", max_phys_addr_leaf);
         return false;
     }

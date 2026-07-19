@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 
-#include "../io.h"
-#include "../memory/memory.h"
 #include "pic.h"
+#include "../io.h"
+#include "../kstring.h"
 
 struct idt_entry idt[256];
 struct idt_pointer idt_ptr;
