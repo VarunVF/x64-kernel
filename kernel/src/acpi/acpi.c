@@ -1,7 +1,7 @@
 #include "acpi.h"
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 bool acpi_checksum(const void* start, uint64_t size) {
     // The sum of all bytes must equal 0 (mod 256).

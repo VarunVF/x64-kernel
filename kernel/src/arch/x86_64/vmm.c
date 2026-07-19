@@ -1,16 +1,19 @@
-#include "vmm.h"
+#include "../vmm.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../limine-protocol/include/limine.h"
+#include "../../../limine-protocol/include/limine.h"
 
-#include "pmm.h"
-#include "util.h"
-#include "../arch/cpu.h"
-#include "../kprint.h"
-#include "../kstring.h"
+#include "../../memory/pmm.h"
+#include "../../memory/util.h"
+#include "../cpu.h"
+#include "../../kprint.h"
+#include "../../kstring.h"
+
+#define VMM_PRESENT 0x1
+#define VMM_WRITABLE 0x2
 
 extern volatile struct limine_memmap_request memmap_request;
 
@@ -32,10 +35,35 @@ static volatile struct limine_executable_address_request executable_address_requ
 
 void vmm_switch_stack_and_cr3(uint64_t masked_pml4_phys, uint64_t new_rsp, void (* vmm_switch_function)(void));
 
+static inline void real_cpuid(uint32_t leaf, uint32_t sub_leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
+    __asm__ volatile (
+        "cpuid"
+        : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+        : "a" (leaf), "c" (sub_leaf)
+    );
+}
+
+static inline uint32_t cpuid_max(uint32_t leaf) {
+    uint32_t eax, ebx, ecx, edx;
+    real_cpuid(leaf, 0, &eax, &ebx, &ecx, &edx);
+    return eax;
+}
+
+inline int cpuid(uint32_t leaf, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx) {
+    uint32_t max_leaf = cpuid_max(leaf & 0x80000000);
+
+    if (max_leaf == 0 || max_leaf < leaf) {
+        return 0;
+    }
+
+    real_cpuid(leaf, 0, eax, ebx, ecx, edx);
+    return 1;
+}
+
 static bool vmm_check_features() {
     uint32_t eax, ebx, ecx, edx;
     uint32_t max_phys_addr_leaf = 0x80000008;
-    if (!cpu_cpuid(max_phys_addr_leaf, &eax, &ebx, &ecx, &edx)) {
+    if (!cpuid(max_phys_addr_leaf, &eax, &ebx, &ecx, &edx)) {
         kprintf("Could not call cpuid with leaf %x\n", max_phys_addr_leaf);
         return false;
     }
@@ -83,7 +111,7 @@ void vmm_map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) 
     pt[pt_index] = masked_phys | flags;
 
     // Flush the entry in the TLB or we might not notice the change
-    __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
+    cpu_invalidate_tlb_page(virt);
 }
 
 int vmm_init() {

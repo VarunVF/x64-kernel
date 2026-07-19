@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 #define VMM_PAGE_SIZE PMM_FRAME_SIZE
-#define VMM_PRESENT 0x1
-#define VMM_WRITABLE 0x2
+
+// Virtual memory management
 
 // Initialise the virtual memory manager. Returns zero on success
 int vmm_init();

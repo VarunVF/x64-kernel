@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 #include "pic.h"
-#include "../io.h"
-#include "../kstring.h"
+#include "../../cpu.h"
+#include "../../../kstring.h"
 
 struct idt_entry idt[256];
 struct idt_pointer idt_ptr;
@@ -15,8 +15,8 @@ extern void idt_flush(struct idt_pointer*);
 
 // Give the PIC some time to react to the command.
 inline static void outb_and_wait(uint16_t port, uint8_t value) {
-    outb(port, value);
-    io_wait();
+    cpu_outb(port, value);
+    cpu_io_wait();
 }
 
 static void pic_remap(int offset1, int offset2) {

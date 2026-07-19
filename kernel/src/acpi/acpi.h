@@ -1,8 +1,8 @@
 #ifndef ACPI_H
 #define ACPI_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // Advanced Configuration and Power Interface (ACPI)
 

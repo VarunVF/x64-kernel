@@ -5,11 +5,10 @@
 #include "../limine-protocol/include/limine.h"
 
 #include "acpi/rsdp.h"
-#include "gdt.h"
-#include "interrupts/idt.h"
+#include "arch/cpu.h"
+#include "arch/vmm.h"
 #include "kprint.h"
 #include "memory/pmm.h"
-#include "memory/vmm.h"
 #include "render.h"
 #include "serial.h"
 
@@ -56,13 +55,6 @@ static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARK
 
 void kernel_init(void);
 
-// Halt function.
-static void halt(void) {
-    for (;;) {
-        __asm__ volatile ("hlt");
-    }
-}
-
 void serial_putc(char c) {
     // Some serial output displays need carriage return
     if (c == '\n') {
@@ -81,21 +73,15 @@ void render_putc(char c) {
 void kernel_start(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
-        halt();
+        cpu_halt_loop();
     }
 
-    // Ensure we got a framebuffer.
+    // Verify Limine requests
     if (framebuffer_request.response == NULL
-     || framebuffer_request.response->framebuffer_count < 1) {
-        halt();
-    }
-    // Verify HHDM request
-    if (hhdm_request.response == NULL) {
-        halt();
-    }
-    // Ensure RSDP was found
-    if (rsdp_request.response == NULL) {
-        halt();
+     || framebuffer_request.response->framebuffer_count < 1
+     || hhdm_request.response == NULL
+     || rsdp_request.response == NULL) {
+        cpu_halt_loop();
     }
 
     // Fetch the first framebuffer.
@@ -120,34 +106,29 @@ void kernel_start(void) {
     hhdm_offset = hhdm_request.response->offset;
     kprintf("Higher-half offset: %p\n", (void*)hhdm_offset);
 
-    // Load GDT
-    gdt_init();
-    kprintf("GDT initialised\n");
-
-    // Load IDT
-    idt_init();
-    kprintf("IDT initialised\n");
+    cpu_init();
+    cpu_setup_interrupts();
 
     // Physical Memory Manager
     if (pmm_init() != 0) {
         kprintf("Failed to initialise PMM\n");
-        halt();
+        cpu_halt_loop();
     }
     kprintf("Initialised PMM\n");
     if (!pmm_verify_bitmap()) {
-        halt();
+        cpu_halt_loop();
     }
 
     // Virtual Memory Manager
     kprintf("Initialising VMM...\n");
     if (vmm_init() != 0) {
         kprintf("Failed to initialise VMM\n");
-        halt();
+        cpu_halt_loop();
     }
     kprintf("Initialised VMM\n");
     vmm_switch(kernel_init);
 
-    halt();
+    cpu_halt_loop();
 }
 
 void kernel_init(void) {
@@ -159,8 +140,8 @@ void kernel_init(void) {
     struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
     if (!rsdp_info.parse_successful) {
         kprintf("Failed to parse RSDP\n");
-        halt();
+        cpu_halt_loop();
     }
 
-    halt();
+    cpu_halt_loop();
 }

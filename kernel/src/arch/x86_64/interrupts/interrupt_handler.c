@@ -1,5 +1,6 @@
 #include "idt.h"
-#include "../kprint.h"
+#include "../../cpu.h"
+#include "../../../kprint.h"
 
 const char* exception_descriptions[32] = {
     "Divide Error",
@@ -79,8 +80,8 @@ void interrupt_handler(struct interrupt_registers* regs) {
         // TODO: Not all exceptions are fatal, for now just print debug info and halt
         dump_registers(regs);
         kprintf("Exception occured, system halted.\n");
-        // Disable further interrupts and halt
-        __asm__ volatile ("cli; hlt");
+        cpu_disable_interrupts();
+        cpu_halt();
     } else {
         // Hardware interrupt
         // TODO: handle...
