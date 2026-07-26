@@ -1,5 +1,7 @@
 #include "gdt.h"
 
+#include "../../../types.h"
+
 extern void gdt_flush(struct gdt_pointer*);
 
 struct gdt_entry gdt[5];
@@ -7,7 +9,7 @@ struct gdt_pointer gdt_ptr;
 
 void gdt_init() {
     gdt_ptr.limit = sizeof(gdt) - 1;
-    gdt_ptr.base = (uintptr_t)&gdt;
+    gdt_ptr.base = (virt_addr)&gdt;
 
     // Notes for long mode:
     // - The base and limit values are ignored.

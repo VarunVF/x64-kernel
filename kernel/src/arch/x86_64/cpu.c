@@ -28,7 +28,7 @@ inline void cpu_disable_interrupts(void) {
     __asm__ volatile ("cli");
 }
 
-inline void cpu_invalidate_tlb_page(uint64_t virt) {
+inline void cpu_invalidate_tlb_page(virt_addr virt) {
     __asm__ volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
 

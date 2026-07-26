@@ -6,11 +6,12 @@
 
 #include "../../../limine-protocol/include/limine.h"
 
+#include "../cpu.h"
 #include "../../memory/pmm.h"
 #include "../../memory/util.h"
-#include "../cpu.h"
 #include "../../kprint.h"
 #include "../../kstring.h"
+#include "../../types.h"
 
 #define VMM_PRESENT 0x1
 #define VMM_WRITABLE 0x2
@@ -19,7 +20,7 @@ extern volatile struct limine_memmap_request memmap_request;
 
 uint64_t max_phy_addr = 36;
 uint64_t* pml4_virt = NULL;
-uint64_t pml4_phys = 0;
+phys_addr pml4_phys = 0;
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_executable_file_request executable_file_request = {
@@ -84,7 +85,7 @@ static uint64_t vmm_get_addr_mask() {
 
 static uint64_t* vmm_find_or_create_entry(uint64_t* table, uint64_t index, uint64_t flags) {
     if (!vmm_is_entry_present(table, index)) {
-        uint64_t pml4_entry_phys = pmm_alloc(1);
+        phys_addr pml4_entry_phys = pmm_alloc(1);
         memset((void*)phys_to_virt(pml4_entry_phys), 0, VMM_PAGE_SIZE);
         table[index] = pml4_entry_phys | flags;
     }
@@ -92,18 +93,18 @@ static uint64_t* vmm_find_or_create_entry(uint64_t* table, uint64_t index, uint6
     return (uint64_t*)phys_to_virt(table[index] & vmm_get_addr_mask());
 }
 
-static size_t vmm_extract_index(uint64_t virt, int shift) {
+static size_t vmm_extract_index(virt_addr virt, int shift) {
     // Translation uses 9 bits at a time from a 48-bit linear address
     return (virt >> shift) & 0x1FFull;
 }
 
-void vmm_map_page(uint64_t* pml4, uint64_t virt, uint64_t phys, uint64_t flags) {
+void vmm_map_page(void* root, virt_addr virt, phys_addr phys, uint64_t flags) {
     size_t pml4_index = vmm_extract_index(virt, 39);
     size_t pdpt_index = vmm_extract_index(virt, 30);
     size_t pd_index   = vmm_extract_index(virt, 21);
     size_t pt_index   = vmm_extract_index(virt, 12);
 
-    uint64_t* pdpt = vmm_find_or_create_entry(pml4, pml4_index, VMM_PRESENT | VMM_WRITABLE);
+    uint64_t* pdpt = vmm_find_or_create_entry(root, pml4_index, VMM_PRESENT | VMM_WRITABLE);
     uint64_t* pd = vmm_find_or_create_entry(pdpt, pdpt_index, VMM_PRESENT | VMM_WRITABLE);
     uint64_t* pt = vmm_find_or_create_entry(pd, pd_index, VMM_PRESENT | VMM_WRITABLE);
 
@@ -134,10 +135,10 @@ int vmm_init() {
     }
     struct limine_file* kernel_file = executable_file_request.response->executable_file;
     uint64_t kernel_size = kernel_file->size;
-    uint64_t kernel_phys_start = executable_address_request.response->physical_base;
-    uint64_t kernel_virt_start = executable_address_request.response->virtual_base;
-    for (uint64_t virt = kernel_virt_start; virt < kernel_virt_start + kernel_size; virt += VMM_PAGE_SIZE) {
-        uint64_t phys = virt - kernel_virt_start + kernel_phys_start;
+    phys_addr kernel_phys_start = executable_address_request.response->physical_base;
+    virt_addr kernel_virt_start = executable_address_request.response->virtual_base;
+    for (virt_addr virt = kernel_virt_start; virt < kernel_virt_start + kernel_size; virt += VMM_PAGE_SIZE) {
+        phys_addr phys = virt - kernel_virt_start + kernel_phys_start;
         vmm_map_page(pml4_virt, virt, phys, VMM_PRESENT | VMM_WRITABLE);
     }
     kprintf("VMM mapped kernel\n");
@@ -149,8 +150,8 @@ int vmm_init() {
     for (size_t i = 0; i < memmap_request.response->entry_count; i++) {
         struct limine_memmap_entry* entry = memmap_request.response->entries[i];
         if (entry->type != LIMINE_MEMMAP_BAD_MEMORY) {
-            for (uint64_t phys = entry->base; phys < entry->base + entry->length; phys += VMM_PAGE_SIZE) {
-                uint64_t virt = phys_to_virt(phys);
+            for (phys_addr phys = entry->base; phys < entry->base + entry->length; phys += VMM_PAGE_SIZE) {
+                virt_addr virt = phys_to_virt(phys);
                 vmm_map_page(pml4_virt, virt, phys, VMM_PRESENT | VMM_WRITABLE);
             }
         }
@@ -162,8 +163,8 @@ int vmm_init() {
 
 void vmm_switch(void (* vmm_switch_function)(void)) {
     // Allocate a new stack
-    uint64_t stack_phys_base = pmm_alloc(4);  // 16KiB stack
-    uint64_t stack_virt_base = phys_to_virt(stack_phys_base);
+    phys_addr stack_phys_base = pmm_alloc(4);  // 16KiB stack
+    virt_addr stack_virt_base = phys_to_virt(stack_phys_base);
     for (int i = 0; i < 4; i++) {
         uint64_t offset = i * VMM_PAGE_SIZE;
         vmm_map_page(pml4_virt, stack_virt_base + offset, stack_phys_base + offset, VMM_PRESENT | VMM_WRITABLE);

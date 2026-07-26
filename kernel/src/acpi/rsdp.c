@@ -9,6 +9,7 @@
 #include "../kprint.h"
 #include "../kstring.h"
 #include "../memory/util.h"
+#include "../types.h"
 
 const struct rsdp_parse_result rsdp_failed_result = {
     false,
@@ -60,10 +61,10 @@ struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr) {
 
     if (is_extended) {
         struct xsdp* xsdp_ptr = (struct xsdp*)rsdp_ptr;
-        uint64_t xsdp_virtual_addr = phys_to_virt(xsdp_ptr->xsdt_address);
+        virt_addr xsdp_virtual_addr = phys_to_virt(xsdp_ptr->xsdt_address);
         return rsdt_parse((struct rsdt*)xsdp_virtual_addr, is_extended);
     } else {
-        uint64_t rsdp_virtual_addr = phys_to_virt(rsdp_ptr->rsdt_address);
+        virt_addr rsdp_virtual_addr = phys_to_virt(rsdp_ptr->rsdt_address);
         return rsdt_parse((struct rsdt*)rsdp_virtual_addr, is_extended);
     }
 }

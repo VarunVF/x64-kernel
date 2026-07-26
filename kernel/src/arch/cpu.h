@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "../types.h"
+
 // Initialise architecture-specific structures
 void cpu_init(void);
 
@@ -19,7 +21,7 @@ void cpu_halt_loop(void);
 void cpu_disable_interrupts(void);
 
 // Flush an entry in the TLB
-void cpu_invalidate_tlb_page(uint64_t virt);
+void cpu_invalidate_tlb_page(virt_addr virt);
 
 // Input a byte from a serial port
 uint8_t cpu_inb(uint16_t port);

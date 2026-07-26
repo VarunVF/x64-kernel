@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
-uint64_t phys_to_virt(uint64_t phys);
-uint64_t virt_to_phys(uint64_t virt);
+#include "../types.h"
+
+virt_addr phys_to_virt(phys_addr phys);
+phys_addr virt_to_phys(virt_addr virt);
 
 #endif  // UTIL_H

@@ -9,6 +9,7 @@
 #include "util.h"
 #include "../kprint.h"
 #include "../kstring.h"
+#include "../types.h"
 
 // Bitmap physical memory allocator
 
@@ -32,7 +33,7 @@ static const char* memory_types[9] = {
 
 static uint8_t* bitmap = NULL;
 static uint64_t bitmap_size = 0;
-static uint64_t bitmap_phys_base = 0;
+static phys_addr bitmap_phys_base = 0;
 static uint64_t bitmap_start_frame = 0;
 static uint64_t bitmap_end_frame = 0;
 
@@ -108,7 +109,7 @@ int pmm_init(void) {
     // and do not overlap with any other entry.
 
     // Calculate highest usable RAM address
-    uint64_t highest_ram_address = 0;
+    phys_addr highest_ram_address = 0;
     uint64_t usable_ram_bytes = 0;
     for (uint64_t i = 0; i < memory_map->entry_count; i++) {
         struct limine_memmap_entry* entry = memory_map->entries[i];
@@ -226,7 +227,7 @@ bool pmm_verify_bitmap(void) {
     return true;
 }
 
-uint64_t pmm_alloc(uint64_t size) {
+phys_addr pmm_alloc(uint64_t size) {
     if (size == 0) {
         return 0;
     }
@@ -264,7 +265,7 @@ uint64_t pmm_alloc(uint64_t size) {
     return 0;
 }
 
-void pmm_free(uint64_t address, uint64_t size) {
+void pmm_free(phys_addr address, uint64_t size) {
     if (address == 0) {
         return;
     }

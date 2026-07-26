@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../types.h"
+
 #define PMM_FRAME_SIZE 4096
 
 // Physical memory management
@@ -15,10 +17,10 @@ int pmm_init(void);
 bool pmm_verify_bitmap(void);
 
 // Allocate frames of memory, returns a physical address
-uint64_t pmm_alloc(uint64_t size);
+phys_addr pmm_alloc(uint64_t size);
 
 // Free frames of memory starting at the given physical address
-void pmm_free(uint64_t address, uint64_t size);
+void pmm_free(phys_addr address, uint64_t size);
 
 // Debug: print bitmap state
 void pmm_debug_print(uint64_t frame, uint64_t count);
