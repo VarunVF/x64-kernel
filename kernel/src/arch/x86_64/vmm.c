@@ -50,7 +50,7 @@ static inline uint32_t cpuid_max(uint32_t leaf) {
     return eax;
 }
 
-inline int cpuid(uint32_t leaf, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx) {
+static inline int cpuid(uint32_t leaf, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx) {
     uint32_t max_leaf = cpuid_max(leaf & 0x80000000);
 
     if (max_leaf == 0 || max_leaf < leaf) {
