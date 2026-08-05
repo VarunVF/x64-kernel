@@ -21,6 +21,8 @@ enum vm_flags {
 // Initialise the virtual memory manager. Returns zero on success
 int vmm_init();
 
+void* vmm_kernel_table_root();
+
 // Switch to a new stack, apply the new paging tables, then enter the given function
 void vmm_switch(vmm_switch_fn switch_function);
 

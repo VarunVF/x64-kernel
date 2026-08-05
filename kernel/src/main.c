@@ -9,6 +9,7 @@
 #include "arch/vmm.h"
 #include "kprint.h"
 #include "memory/pmm.h"
+#include "memory/kmalloc.h"
 #include "render.h"
 #include "serial.h"
 
@@ -142,6 +143,20 @@ void kernel_init(void) {
         kprintf("Failed to parse RSDP\n");
         cpu_halt_loop();
     }
+
+    // Init heap
+    if (kmalloc_init() != 0) {
+        kprintf("Failed to initialise heap\n");
+        cpu_halt_loop();
+    }
+    kmalloc_print_debug();
+
+    // Try allocation
+    int32_t* ptr = kmalloc(sizeof(int32_t));
+    *ptr = 0;
+    kmalloc_print_debug();
+    kfree(ptr);
+    kmalloc_print_debug();
 
     cpu_halt_loop();
 }
