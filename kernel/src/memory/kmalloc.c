@@ -13,38 +13,39 @@
 
 #define HEAP_INITIAL_PAGES 2
 #define HEAP_EXPAND_PAGES 2
+#define ALIGNMENT 16
+#define MIN_NODE_SIZE ALIGNMENT
 
 extern volatile struct limine_executable_file_request executable_file_request;
 extern volatile struct limine_executable_address_request executable_address_request;
 
 struct heap_node {
+    struct heap_node* prev;
+    struct heap_node* next;
     size_t size;
     bool is_used;
 };
 
 struct heap_node* heap_start = NULL;
-struct heap_node* current_heap_pos = NULL;
 virt_addr heap_limit = 0;
+
+uint64_t align_up(uint64_t value, int alignment) {
+    return (value + alignment - 1) & ~(alignment - 1);
+}
 
 // Returns zero on success
 static int heap_expand(size_t pages) {
     void* root = vmm_kernel_table_root();
     for (size_t i = 0; i < pages; i++) {
-        virt_addr virt = (virt_addr)current_heap_pos + i * VMM_PAGE_SIZE;
         phys_addr phys = pmm_alloc(1);
         if (phys == 0)
             return 1;
 
-        vmm_map_page(root, virt, phys, VM_FLAG_WRITE);
+        vmm_map_page(root, heap_limit, phys, VM_FLAG_WRITE);
         heap_limit += VMM_PAGE_SIZE;
     }
     
     return 0;
-}
-
-// Will a new node of this size require expansion?
-static bool heap_requires_expansion(size_t size) {
-    return (virt_addr)current_heap_pos + sizeof(struct heap_node) + size >= heap_limit;
 }
 
 int kmalloc_init() {
@@ -57,63 +58,136 @@ int kmalloc_init() {
     size_t kernel_size = executable_file_request.response->executable_file->size;
     
     // Add an unmapped page to catch buggy accesses
-    heap_start = (struct heap_node*)(kernel_start + kernel_size + VMM_PAGE_SIZE);
-    current_heap_pos = heap_start;
+    virt_addr raw_start = kernel_start + kernel_size + VMM_PAGE_SIZE;
+    heap_start = (struct heap_node*)align_up(raw_start, VMM_PAGE_SIZE);
     heap_limit = (virt_addr)heap_start;
 
-    // Map initial heap
+    // Map initial heap pages
     if (heap_expand(HEAP_INITIAL_PAGES) != 0)
         return 3;
+
+    heap_start->prev = NULL;
+    heap_start->next = NULL;
+    heap_start->size = heap_limit - (virt_addr)heap_start - sizeof(struct heap_node);
+    heap_start->is_used = false;
 
     return 0;
 }
 
 void kmalloc_print_debug() {
-    kprintf("Heap start at %p and current position at %p\n", heap_start, current_heap_pos);
+    kprintf("Heap start at %p\n", heap_start);
     kprintf("Heap limit at %p\n", heap_limit);
     kprintf("Heap contents:\n");
     
     struct heap_node* current = heap_start;
-    while (current < current_heap_pos) {
-        kprintf("    Heap node: size=%d, is_used=%d\n", current->size, current->is_used);
-        uint8_t* next = (uint8_t*)current + sizeof(struct heap_node) + current->size;
-        current = (struct heap_node*)next;
+    while (current != NULL) {
+        kprintf("    Heap node at %p: prev=%p, next=%p, size=%d, is_used=%d\n",
+            current, current->prev, current->next, current->size, (int)current->is_used);
+        current = current->next;
     }
 
     kprintf("End of heap contents.\n");
 }
 
 void* kmalloc(size_t size) {
+    if (size == 0 || heap_start == NULL)
+        return NULL;
+
+    size_t aligned_size = align_up(size, ALIGNMENT);
+
     struct heap_node* current = heap_start;
-    while (current < current_heap_pos) {
-        struct heap_node* current_node = (struct heap_node*)heap_start;
-        
-        // Free node with enough space
-        if (current_node->size >= size && !current_node->is_used) {
-            current_node->is_used = true;
-            return (uint8_t*)current_node + sizeof(struct heap_node);
+    struct heap_node* last = NULL;
+
+    while (current != NULL) {
+        if (!current->is_used && current->size >= aligned_size) {
+            // Check if node can be split
+            if (current->size >= aligned_size + sizeof(struct heap_node) + MIN_NODE_SIZE) {
+                uint8_t* new_node_addr = (uint8_t*)current + sizeof(struct heap_node) + aligned_size;
+                struct heap_node* new_node = (struct heap_node*)new_node_addr;
+
+                new_node->size = current->size - aligned_size - sizeof(struct heap_node);
+                new_node->is_used = false;
+                new_node->next = current->next;
+                new_node->prev = current;
+
+                if (current->next != NULL)
+                    current->next->prev = new_node;
+
+                current->next = new_node;
+                current->size = aligned_size;
+            }
+
+            current->is_used = true;
+            return (uint8_t*)current + sizeof(struct heap_node);
         }
 
-        current += current_node->size + sizeof(struct heap_node);
+        last = current;
+        current = current->next;
     }
 
-    if (heap_requires_expansion(size)) {
-        if (heap_expand(HEAP_EXPAND_PAGES) != 0)
+    // No suitable free block found, expand heap
+    if (last != NULL && !last->is_used) {
+        // Expand existing tail free block
+        size_t needed = aligned_size - last->size;
+        size_t pages_needed = (needed + VMM_PAGE_SIZE - 1) / VMM_PAGE_SIZE;
+        if (pages_needed < HEAP_EXPAND_PAGES)
+            pages_needed = HEAP_EXPAND_PAGES;
+
+        if (heap_expand(pages_needed) != 0)
             return NULL;
+
+        last->size = heap_limit - (virt_addr)last - sizeof(struct heap_node);
+        return kmalloc(size);
+    } else {
+        // Append a new trailing free block at current heap end
+        virt_addr new_node_addr = (virt_addr)last + sizeof(struct heap_node) + last->size;
+        size_t total_needed = sizeof(struct heap_node) + aligned_size;
+        
+        size_t pages_needed = (total_needed + VMM_PAGE_SIZE - 1) / VMM_PAGE_SIZE;
+        if (pages_needed < HEAP_EXPAND_PAGES)
+            pages_needed = HEAP_EXPAND_PAGES;
+
+        if (heap_expand(pages_needed) != 0)
+            return NULL;
+
+        struct heap_node* new_node = (struct heap_node*)new_node_addr;
+        new_node->prev = last;
+        new_node->next = NULL;
+        new_node->size = heap_limit - new_node_addr - sizeof(struct heap_node);
+        new_node->is_used = false;
+
+        if (last != NULL)
+            last->next = new_node;
+
+        return kmalloc(size);
     }
+}
 
-    // Append new node
-    current_heap_pos->size = size;
-    current_heap_pos->is_used = true;
+static void heap_merge_with_next(struct heap_node* node) {
+    struct heap_node* next = node->next;
+    if (next == NULL || next->is_used)
+        return;
 
-    uint8_t* ptr = (uint8_t*)current_heap_pos + sizeof(struct heap_node);
-    current_heap_pos = (struct heap_node*)(ptr + size);
-    return ptr;
+    node->size += sizeof(struct heap_node) + next->size;
+    node->next = next->next;
+
+    if (node->next != NULL)
+        node->next->prev = node;
 }
 
 void kfree(void* ptr) {
-    uint8_t* byte_ptr = (uint8_t*)ptr - sizeof(struct heap_node);
-    struct heap_node* node = (struct heap_node*)byte_ptr;
-    if (node->is_used)
-        node->is_used = false;
+    if (ptr == NULL)
+        return;
+
+    uint8_t* node_byte_ptr = (uint8_t*)ptr - sizeof(struct heap_node);
+    struct heap_node* node = (struct heap_node*)node_byte_ptr;
+
+    if (!node->is_used)
+        return;
+    node->is_used = false;
+
+    heap_merge_with_next(node);
+    if (node->prev != NULL && !node->prev->is_used) {
+        heap_merge_with_next(node->prev);
+    }
 }
