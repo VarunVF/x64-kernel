@@ -38,6 +38,12 @@ const char* exception_descriptions[32] = {
     "(Intel Reserved)",
 };
 
+inline uint64_t read_cr2(void) {
+    uint64_t addr;
+    __asm__ volatile ("mov %%cr2, %0" : "=r"(addr));
+    return addr;
+}
+
 static void dump_register(const char* name, uint64_t value) {
     kprintf("%s = %p\n", name, (void*)value);
 }
@@ -65,6 +71,8 @@ static void dump_registers(struct interrupt_registers* regs) {
     dump_register("r13   ", regs->r13);
     dump_register("r14   ", regs->r14);
     dump_register("r15   ", regs->r15);
+
+    dump_register("cr2   ", read_cr2());
 }
 
 // Signal end of interrupt to the LAPIC

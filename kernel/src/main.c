@@ -130,7 +130,12 @@ void kernel_init(void) {
     KASSERT_MSG(rsdp_info.parse_successful, "Failed to parse RSDP");
 
     KASSERT_MSG(kmalloc_init() == 0, "Failed to initialise heap");
-    kmalloc_print_debug();
+    vmm_add_initial_regions();
+
+    void* lapic_phys_base = (void*)(uint64_t)rsdp_info.lapic_base;
+    int* lapic_regs = vmm_alloc(0x1000, VM_FLAG_WRITE | VM_FLAG_MMIO, lapic_phys_base);
+
+    vmm_debug_print();
 
     cpu_halt_loop();
 }

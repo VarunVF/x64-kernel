@@ -7,11 +7,16 @@
 #include "../../../limine-protocol/include/limine.h"
 
 #include "../cpu.h"
+#include "../../memory/kmalloc.h"
 #include "../../memory/pmm.h"
 #include "../../memory/util.h"
 #include "../../kprint.h"
 #include "../../kstring.h"
+#include "../../macros.h"
+#include "../../panic.h"
 #include "../../types.h"
+
+#define MIN_ALLOC_ADDR 0xffff800000000000
 
 enum pt_flags {
     PT_FLAG_PRESENT = 1ull << 0,
@@ -20,12 +25,22 @@ enum pt_flags {
     PT_FLAG_NX = 1ull << 63,
 };
 
+struct vm_object {
+    virt_addr base;
+    size_t length;
+    uint64_t vm_flags;
+    struct vm_object* next;
+};
+
 extern volatile struct limine_memmap_request memmap_request;
 extern volatile struct limine_executable_file_request executable_file_request;
 extern volatile struct limine_executable_address_request executable_address_request;
 
+extern struct heap_node* heap_start;
+
 uint64_t max_phy_addr = 36;
 uint64_t* pml4_virt = NULL;
+struct vm_object* vm_objs = NULL;
 
 void vmm_switch_stack_and_cr3(uint64_t masked_pml4_phys, uint64_t new_rsp, vmm_switch_fn vmm_switch_function);
 
@@ -123,10 +138,7 @@ int vmm_init() {
     uint64_t kernel_size = kernel_file->size;
     phys_addr kernel_phys_start = executable_address_request.response->physical_base;
     virt_addr kernel_virt_start = executable_address_request.response->virtual_base;
-    for (virt_addr virt = kernel_virt_start; virt < kernel_virt_start + kernel_size; virt += VMM_PAGE_SIZE) {
-        phys_addr phys = virt - kernel_virt_start + kernel_phys_start;
-        vmm_map_page(pml4_virt, virt, phys, VM_FLAG_WRITE | VM_FLAG_EXEC);
-    }
+    vmm_map_pages(pml4_virt, kernel_size / VMM_PAGE_SIZE, kernel_virt_start, kernel_phys_start, VM_FLAG_WRITE | VM_FLAG_EXEC);
     kprintf("VMM mapped kernel\n");
 
     // Map memory map entries with HHDM
@@ -136,16 +148,69 @@ int vmm_init() {
     for (size_t i = 0; i < memmap_request.response->entry_count; i++) {
         struct limine_memmap_entry* entry = memmap_request.response->entries[i];
         if (entry->type != LIMINE_MEMMAP_BAD_MEMORY) {
-            for (phys_addr phys = entry->base; phys < entry->base + entry->length; phys += VMM_PAGE_SIZE) {
-                virt_addr virt = phys_to_virt(phys);
-                vmm_map_page(pml4_virt, virt, phys, VM_FLAG_WRITE);
-            }
+            vmm_map_pages(pml4_virt, entry->length / VMM_PAGE_SIZE, phys_to_virt(entry->base), entry->base, VM_FLAG_WRITE);
         }
     }
     kprintf("VMM mapped memory map entries with HHDM\n");
 
     kprintf("Initialised VMM\n");
     return 0;
+}
+
+static void vmm_add_region(virt_addr virt, size_t length, uint64_t vm_flags) {
+    length = (size_t)align_up(length, VMM_PAGE_SIZE);
+
+    struct vm_object* current = vm_objs;
+    struct vm_object* prev = NULL;
+
+    while (current != NULL && current->base < virt) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (prev != NULL && (prev->base + prev->length > virt)) {
+        kprintf("Unable to place node: (prev->base + prev->length)=%p, virt=%p\n", prev->base + prev->length, virt);
+        panic("vmm_add_region overlap with previous region");
+    }
+
+    if (current != NULL && (virt + length > current->base)) {
+        kprintf("Unable to place node: (virt + length)=%p, current->base=%p\n", virt + length, current->base);
+        panic("vmm_add_region overlap with next region");
+    }
+
+    struct vm_object* latest = kmalloc(sizeof(struct vm_object));
+    latest->base = virt;
+    latest->length = length;
+    latest->vm_flags = vm_flags;
+    latest->next = current;
+    
+    if (prev == NULL) {
+        vm_objs = latest;
+    } else {
+        prev->next = latest;
+    }
+}
+
+void vmm_add_initial_regions() {
+    // Kernel
+    KASSERT(executable_address_request.response != NULL && executable_file_request.response != NULL);
+    virt_addr kernel = executable_address_request.response->virtual_base;
+    size_t kernel_size = executable_file_request.response->executable_file->size;
+    vmm_add_region(kernel, kernel_size, VM_FLAG_WRITE | VM_FLAG_EXEC);
+    
+    // Kernel heap
+    const virt_addr highest_virt_addr = (~(virt_addr)0);
+    size_t kernel_heap_size = highest_virt_addr - (virt_addr)heap_start;
+    vmm_add_region((virt_addr)heap_start, kernel_heap_size, VM_FLAG_WRITE);
+    
+    // Higher half direct map
+    KASSERT(memmap_request.response != NULL);
+    for (size_t i = 0; i < memmap_request.response->entry_count; i++) {
+        struct limine_memmap_entry* entry = memmap_request.response->entries[i];
+        if (entry->type != LIMINE_MEMMAP_BAD_MEMORY) {
+            vmm_add_region(phys_to_virt(entry->base), entry->length, VM_FLAG_WRITE);
+        }
+    }
 }
 
 void* vmm_kernel_table_root() {
@@ -166,12 +231,10 @@ uint64_t vmm_convert_vm_flags(uint64_t vm_flags) {
 
 void vmm_switch(vmm_switch_fn switch_function) {
     // Allocate a new stack
-    phys_addr stack_phys_base = pmm_alloc(4);  // 16KiB stack
+    const size_t stack_size = 16 * 1024;  // 16KiB stack
+    phys_addr stack_phys_base = pmm_alloc(stack_size / PMM_FRAME_SIZE);
     virt_addr stack_virt_base = phys_to_virt(stack_phys_base);
-    for (int i = 0; i < 4; i++) {
-        uint64_t offset = i * VMM_PAGE_SIZE;
-        vmm_map_page(pml4_virt, stack_virt_base + offset, stack_phys_base + offset, VM_FLAG_WRITE);
-    }
+    vmm_map_pages(pml4_virt, 4, stack_virt_base, stack_phys_base, VM_FLAG_WRITE);
     memset((void*)stack_virt_base, 0, 4 * VMM_PAGE_SIZE);
     
     uint64_t masked_pml4_phys = virt_to_phys((virt_addr)pml4_virt) & vmm_get_addr_mask();
@@ -200,6 +263,13 @@ void vmm_map_page(void* root, virt_addr virt, phys_addr phys, uint64_t vm_flags)
     cpu_invalidate_tlb_page(virt);
 }
 
+void vmm_map_pages(void* root, size_t pages, virt_addr virt, phys_addr phys, uint64_t vm_flags) {
+    for (size_t i = 0; i < pages; i++) {
+        uint64_t offset = i * VMM_PAGE_SIZE;
+        vmm_map_page(root, virt + offset, phys + offset, vm_flags);
+    }
+}
+
 void vmm_unmap_page(void* root, virt_addr virt) {
     size_t pml4_index = vmm_extract_index(virt, 39);
     size_t pdpt_index = vmm_extract_index(virt, 30);
@@ -217,4 +287,114 @@ void vmm_unmap_page(void* root, virt_addr virt) {
         pt[pt_index] = 0;
         cpu_invalidate_tlb_page(virt);
     }
+}
+
+void vmm_unmap_pages(void* root, size_t pages, virt_addr virt) {
+    for (size_t i = 0; i < pages; i++) {
+        uint64_t offset = i * VMM_PAGE_SIZE;
+        vmm_unmap_page(root, virt + offset);
+    }
+}
+
+phys_addr vmm_find_phys(void* root, virt_addr virt) {
+    size_t pml4_index = vmm_extract_index(virt, 39);
+    size_t pdpt_index = vmm_extract_index(virt, 30);
+    size_t pd_index   = vmm_extract_index(virt, 21);
+    size_t pt_index   = vmm_extract_index(virt, 12);
+
+    uint64_t* pdpt = vmm_find_entry(root, pml4_index);
+    uint64_t* pd = vmm_find_entry(pdpt, pdpt_index);
+    uint64_t* pt = vmm_find_entry(pd, pd_index);
+
+    if (pt == NULL) {
+        return 0;
+    }
+
+    return pt[pt_index] & vmm_get_addr_mask();
+}
+
+void* vmm_alloc(size_t length, uint64_t vm_flags, void* arg) {
+    length = (size_t)align_up(length, VMM_PAGE_SIZE);
+
+    struct vm_object* current = vm_objs;
+    struct vm_object* prev = NULL;
+    virt_addr prev_end = MIN_ALLOC_ADDR;
+
+    while (current != NULL) {
+        if (prev)
+            prev_end = prev->base + prev->length;
+            
+        // Is there enough space between two vm_objects to hold length bytes?
+        if (prev_end + length <= current->base) {
+            break;
+        }
+
+        prev = current;
+        current = current->next;
+    }
+
+    struct vm_object* latest = kmalloc(sizeof(struct vm_object));
+    if (prev == NULL) {
+        vm_objs = latest;
+    } else {
+        prev_end = prev->base + prev->length;
+        prev->next = latest;
+    }
+    latest->next = current;
+    latest->base = prev_end;
+    latest->length = length;
+    latest->vm_flags = vm_flags;
+
+    phys_addr phys = 0;
+    if (vm_flags & VM_FLAG_MMIO)
+        phys = (phys_addr)arg;
+    else
+        phys = pmm_alloc(length / VMM_PAGE_SIZE);  // Immediate backing
+    vmm_map_pages(pml4_virt, length / VMM_PAGE_SIZE, latest->base, phys, vm_flags);
+
+    return (void*)latest->base;
+}
+
+void vmm_free(void* addr) {
+    struct vm_object* current = vm_objs;
+    struct vm_object* prev = NULL;
+
+    while (current != NULL) {
+        if (current->base == (virt_addr)addr) {
+            // Remove it from the linked list
+            if (prev)
+                prev->next = current->next;
+            else
+                vm_objs = NULL;
+            current->next = NULL;
+            break;
+        }
+
+        prev = current;
+        current = current->next;
+    }
+
+    if (current == NULL)
+        panic("Bad pointer passed to vmm_free");
+
+    if (!(current->vm_flags & VM_FLAG_MMIO)) {
+        phys_addr phys_base = vmm_find_phys(pml4_virt, current->base);
+        pmm_free(phys_base, current->length / VMM_PAGE_SIZE);
+    }
+    vmm_unmap_pages(pml4_virt, current->length / VMM_PAGE_SIZE, current->base);
+
+    kfree(current);
+}
+
+void vmm_debug_print() {
+    kprintf("vm_objs list:\n");
+
+    struct vm_object* current = vm_objs;
+    while (current != NULL) {
+        kprintf("    vm_object at %p: base=%p, length=%p, flags=0b%b, next=%p\n",
+            current, current->base, current->length, current->vm_flags, current->next);
+        current = current->next;
+    }
+
+    kprintf("End of vm_objs list.\n");
 }

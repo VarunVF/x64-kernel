@@ -11,6 +11,7 @@
 #include "../macros.h"
 #include "../types.h"
 #include "pmm.h"
+#include "util.h"
 
 #define HEAP_INITIAL_PAGES 2
 #define HEAP_EXPAND_PAGES 2
@@ -29,15 +30,6 @@ struct heap_node {
 
 struct heap_node* heap_start = NULL;
 virt_addr heap_limit = 0;
-
-static inline bool is_power_of_two(int number) {
-    return (number > 0) && (number & (number - 1)) == 0;
-}
-
-static uint64_t align_up(uint64_t value, int alignment) {
-    KASSERT(is_power_of_two(alignment));
-    return (value + alignment - 1) & ~(alignment - 1);
-}
 
 // Returns zero on success
 static int heap_expand(size_t pages) {
