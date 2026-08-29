@@ -100,6 +100,8 @@ static size_t vmm_extract_index(virt_addr virt, int shift) {
 }
 
 int vmm_init() {
+    kprintf("Initialising VMM...\n");
+
     if (!vmm_check_features()) {
         return 1;
     }
@@ -142,6 +144,7 @@ int vmm_init() {
     }
     kprintf("VMM mapped memory map entries with HHDM\n");
 
+    kprintf("Initialised VMM\n");
     return 0;
 }
 

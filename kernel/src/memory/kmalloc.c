@@ -8,6 +8,7 @@
 
 #include "../arch/vmm.h"
 #include "../kprint.h"
+#include "../macros.h"
 #include "../types.h"
 #include "pmm.h"
 
@@ -29,7 +30,12 @@ struct heap_node {
 struct heap_node* heap_start = NULL;
 virt_addr heap_limit = 0;
 
-uint64_t align_up(uint64_t value, int alignment) {
+static inline bool is_power_of_two(int number) {
+    return (number > 0) && (number & (number - 1)) == 0;
+}
+
+static uint64_t align_up(uint64_t value, int alignment) {
+    KASSERT(is_power_of_two(alignment));
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
@@ -90,7 +96,9 @@ void kmalloc_print_debug() {
 }
 
 void* kmalloc(size_t size) {
-    if (size == 0 || heap_start == NULL)
+    KASSERT_MSG(heap_start != NULL && heap_limit != 0, "Heap was not initialised");
+
+    if (size == 0)
         return NULL;
 
     size_t aligned_size = align_up(size, ALIGNMENT);
@@ -164,6 +172,8 @@ void* kmalloc(size_t size) {
 }
 
 static void heap_merge_with_next(struct heap_node* node) {
+    KASSERT(node != NULL);
+
     struct heap_node* next = node->next;
     if (next == NULL || next->is_used)
         return;
@@ -182,8 +192,7 @@ void kfree(void* ptr) {
     uint8_t* node_byte_ptr = (uint8_t*)ptr - sizeof(struct heap_node);
     struct heap_node* node = (struct heap_node*)node_byte_ptr;
 
-    if (!node->is_used)
-        return;
+    KASSERT_MSG(node->is_used, "Possible double free detected");
     node->is_used = false;
 
     heap_merge_with_next(node);

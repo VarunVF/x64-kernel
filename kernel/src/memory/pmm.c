@@ -175,6 +175,7 @@ int pmm_init(void) {
         bitmap_start_frame, bitmap_end_frame, bitmap_start_frame * PMM_FRAME_SIZE,
         bitmap_end_frame * PMM_FRAME_SIZE);
 
+    kprintf("Initialised PMM\n");
     return 0;
 }
 

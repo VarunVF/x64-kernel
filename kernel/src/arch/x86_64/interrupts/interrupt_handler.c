@@ -1,6 +1,7 @@
 #include "idt.h"
 #include "../../cpu.h"
 #include "../../../kprint.h"
+#include "../../../panic.h"
 
 const char* exception_descriptions[32] = {
     "Divide Error",
@@ -74,14 +75,13 @@ static void lapic_send_eoi() {
 void interrupt_handler(struct interrupt_registers* regs) {
     if (regs->interrupt_number < 32) {
         // Exception
+        // TODO: Not all exceptions are fatal, for now just print debug info and halt
+
+        cpu_disable_interrupts();
         kprintf("CPU exception: %s\n", exception_descriptions[regs->interrupt_number]);
         kprintf("Error code: %d\n", regs->error_code);
-
-        // TODO: Not all exceptions are fatal, for now just print debug info and halt
         dump_registers(regs);
-        kprintf("Exception occured, system halted.\n");
-        cpu_disable_interrupts();
-        cpu_halt();
+        panic("CPU Exception");
     } else {
         // Hardware interrupt
         // TODO: handle...

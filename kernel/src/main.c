@@ -8,6 +8,7 @@
 #include "arch/cpu.h"
 #include "arch/vmm.h"
 #include "kprint.h"
+#include "macros.h"
 #include "memory/pmm.h"
 #include "memory/kmalloc.h"
 #include "render.h"
@@ -110,23 +111,10 @@ void kernel_start(void) {
     cpu_init();
     cpu_setup_interrupts();
 
-    // Physical Memory Manager
-    if (pmm_init() != 0) {
-        kprintf("Failed to initialise PMM\n");
-        cpu_halt_loop();
-    }
-    kprintf("Initialised PMM\n");
-    if (!pmm_verify_bitmap()) {
-        cpu_halt_loop();
-    }
+    KASSERT_MSG(pmm_init() == 0, "Failed to initialise PMM");
+    KASSERT_MSG(pmm_verify_bitmap(), "PMM bitmap verification failed");
+    KASSERT_MSG(vmm_init() == 0, "Failed to initialise VMM");
 
-    // Virtual Memory Manager
-    kprintf("Initialising VMM...\n");
-    if (vmm_init() != 0) {
-        kprintf("Failed to initialise VMM\n");
-        cpu_halt_loop();
-    }
-    kprintf("Initialised VMM\n");
     vmm_switch(kernel_init);
 
     cpu_halt_loop();
@@ -139,23 +127,9 @@ void kernel_init(void) {
     void* rsdp_addr = rsdp_request.response->address;
     kprintf("RSDP found at %p\n", rsdp_addr);
     struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
-    if (!rsdp_info.parse_successful) {
-        kprintf("Failed to parse RSDP\n");
-        cpu_halt_loop();
-    }
+    KASSERT_MSG(rsdp_info.parse_successful, "Failed to parse RSDP");
 
-    // Init heap
-    if (kmalloc_init() != 0) {
-        kprintf("Failed to initialise heap\n");
-        cpu_halt_loop();
-    }
-    kmalloc_print_debug();
-
-    // Try allocation
-    int32_t* ptr = kmalloc(sizeof(int32_t));
-    *ptr = 0;
-    kmalloc_print_debug();
-    kfree(ptr);
+    KASSERT_MSG(kmalloc_init() == 0, "Failed to initialise heap");
     kmalloc_print_debug();
 
     cpu_halt_loop();
