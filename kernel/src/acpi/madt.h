@@ -53,6 +53,7 @@ struct madt {
 struct madt_parse_result {
     bool parse_successful;
     uint32_t lapic_base;
+    uint32_t ioapic_base;
 };
 
 struct madt_parse_result madt_parse(const struct madt* madt_ptr);

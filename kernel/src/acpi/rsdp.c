@@ -13,6 +13,7 @@
 
 const struct rsdp_parse_result rsdp_failed_result = {
     false,
+    0,
     0
 };
 
@@ -87,7 +88,8 @@ struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extende
     struct madt_parse_result madt_info = madt_parse(madt_ptr);
     return (struct rsdp_parse_result){
         madt_info.parse_successful,
-        madt_info.lapic_base
+        madt_info.lapic_base,
+        madt_info.ioapic_base
     };
 }
 

@@ -18,6 +18,7 @@ enum vm_flags {
     VM_FLAG_EXEC = 1ull << 1,
     VM_FLAG_USER = 1ull << 2,
     VM_FLAG_MMIO = 1ull << 3,
+    VM_FLAG_UC = 1ull << 4,
 };
 
 // Initialise the virtual memory manager. Returns zero on success

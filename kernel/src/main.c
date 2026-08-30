@@ -131,11 +131,16 @@ void kernel_init(void) {
 
     KASSERT_MSG(kmalloc_init() == 0, "Failed to initialise heap");
     vmm_add_initial_regions();
-
+    
+    // Map LAPIC and IOAPIC registers as strong uncacheable (UC)
+    uint64_t mmio_flags = VM_FLAG_WRITE | VM_FLAG_MMIO | VM_FLAG_UC;
     void* lapic_phys_base = (void*)(uint64_t)rsdp_info.lapic_base;
-    int* lapic_regs = vmm_alloc(0x1000, VM_FLAG_WRITE | VM_FLAG_MMIO, lapic_phys_base);
+    void* ioapic_phys_base = (void*)(uint64_t)rsdp_info.ioapic_base;
+    void* lapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, lapic_phys_base);
+    void* ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
 
-    vmm_debug_print();
+    vmm_free(lapic_regs);
+    vmm_free(ioapic_regs);
 
     cpu_halt_loop();
 }

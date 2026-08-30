@@ -8,6 +8,7 @@
 
 const struct madt_parse_result madt_failed_result = {
     false,
+    0,
     0
 };
 
@@ -21,6 +22,7 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
     kprintf("MADT checksum validated\n");
 
     uint32_t local_apic_addr = madt_ptr->local_apic_address;
+    uint32_t ioapic_addr = 0;
     kprintf("Local APIC address: %p\n", (uint64_t)local_apic_addr);
     
     uint8_t* start = (uint8_t*)madt_ptr->records;
@@ -51,6 +53,7 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
                 struct madt_ioapic_record* ioapic = (struct madt_ioapic_record*)current;
                 kprintf("Found I/O APIC: ID %d, Physical address %p\n",
                     ioapic->ioapic_id, (void*)(uint64_t)ioapic->ioapic_address);
+                    ioapic_addr = ioapic->ioapic_address;
                     break;
                 }
             case MADT_ISO_RECORD: {
@@ -71,6 +74,7 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
 
     return (struct madt_parse_result){
         true,
-        local_apic_addr
+        local_apic_addr,
+        ioapic_addr
     };
 }

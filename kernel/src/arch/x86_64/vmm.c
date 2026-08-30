@@ -6,6 +6,7 @@
 
 #include "../../../limine-protocol/include/limine.h"
 
+#include "./cpuid.h"
 #include "../cpu.h"
 #include "../../memory/kmalloc.h"
 #include "../../memory/pmm.h"
@@ -22,6 +23,8 @@ enum pt_flags {
     PT_FLAG_PRESENT = 1ull << 0,
     PT_FLAG_WRITE = 1ull << 1,
     PT_FLAG_USER = 1ull << 2,
+    PT_FLAG_PWT = 1ull << 3,
+    PT_FLAG_PCD = 1ull << 4,
     PT_FLAG_NX = 1ull << 63,
 };
 
@@ -43,31 +46,6 @@ uint64_t* pml4_virt = NULL;
 struct vm_object* vm_objs = NULL;
 
 void vmm_switch_stack_and_cr3(uint64_t masked_pml4_phys, uint64_t new_rsp, vmm_switch_fn vmm_switch_function);
-
-static inline void real_cpuid(uint32_t leaf, uint32_t sub_leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
-    __asm__ volatile (
-        "cpuid"
-        : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
-        : "a" (leaf), "c" (sub_leaf)
-    );
-}
-
-static inline uint32_t cpuid_max(uint32_t leaf) {
-    uint32_t eax, ebx, ecx, edx;
-    real_cpuid(leaf, 0, &eax, &ebx, &ecx, &edx);
-    return eax;
-}
-
-static inline int cpuid(uint32_t leaf, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx) {
-    uint32_t max_leaf = cpuid_max(leaf & 0x80000000);
-
-    if (max_leaf == 0 || max_leaf < leaf) {
-        return 0;
-    }
-
-    real_cpuid(leaf, 0, eax, ebx, ecx, edx);
-    return 1;
-}
 
 static bool vmm_check_features() {
     uint32_t eax, ebx, ecx, edx;
@@ -225,6 +203,8 @@ uint64_t vmm_convert_vm_flags(uint64_t vm_flags) {
         pt_flags |= PT_FLAG_USER;
     if ((vm_flags & VM_FLAG_EXEC) == 0)
         pt_flags |= PT_FLAG_NX;
+    if (vm_flags & VM_FLAG_UC)
+        pt_flags |= PT_FLAG_PWT | PT_FLAG_PCD;
     
     return pt_flags;
 }
@@ -360,30 +340,28 @@ void vmm_free(void* addr) {
     struct vm_object* prev = NULL;
 
     while (current != NULL) {
-        if (current->base == (virt_addr)addr) {
-            // Remove it from the linked list
-            if (prev)
-                prev->next = current->next;
-            else
-                vm_objs = NULL;
-            current->next = NULL;
+        if (current->base == (virt_addr)addr)
             break;
-        }
 
         prev = current;
         current = current->next;
     }
-
+    
     if (current == NULL)
         panic("Bad pointer passed to vmm_free");
+
+    if (current == vm_objs)
+        vm_objs = current->next;  // Removing first node
+    else
+        prev->next = current->next;  // Removing middle node
+    current->next = NULL;
+    kfree(current);
 
     if (!(current->vm_flags & VM_FLAG_MMIO)) {
         phys_addr phys_base = vmm_find_phys(pml4_virt, current->base);
         pmm_free(phys_base, current->length / VMM_PAGE_SIZE);
     }
     vmm_unmap_pages(pml4_virt, current->length / VMM_PAGE_SIZE, current->base);
-
-    kfree(current);
 }
 
 void vmm_debug_print() {
