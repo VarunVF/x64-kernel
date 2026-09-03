@@ -1,5 +1,7 @@
 #include "../cpu.h"
 
+#include <stdint.h>
+
 #include "gdt/gdt.h"
 #include "interrupts/idt.h"
 #include "../../kprint.h"
@@ -51,4 +53,14 @@ inline void cpu_outb(uint16_t port, uint8_t value) {
 inline void cpu_io_wait(void) {
     // We can do an IO operation on any unused port
     cpu_outb(0x80, 0);
+}
+
+inline uint64_t* cpu_read_frame_ptr(void) {
+    uint64_t* rbp;
+    __asm__ volatile ("mov %%rbp, %0" : "=r"(rbp));
+    return rbp;
+}
+
+inline uint64_t* cpu_read_return_addr(uint64_t* frame_ptr) {
+    return (uint64_t*)frame_ptr[1];
 }
