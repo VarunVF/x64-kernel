@@ -12,9 +12,12 @@
 #include "../types.h"
 
 const struct rsdp_parse_result rsdp_failed_result = {
-    false,
-    0,
-    0
+    .madt_info = {
+        false,
+        0,
+        0,
+        {{0}}
+    }
 };
 
 static bool rsdp_validate_checksum(const struct rsdp* rsdp_ptr, bool is_extended) {
@@ -85,11 +88,8 @@ struct rsdp_parse_result rsdt_parse(const struct rsdt* rsdt_ptr, bool is_extende
         return rsdp_failed_result;
     }
     kprintf("MADT found at %p\n", (void*)madt_ptr);
-    struct madt_parse_result madt_info = madt_parse(madt_ptr);
     return (struct rsdp_parse_result){
-        madt_info.parse_successful,
-        madt_info.lapic_base,
-        madt_info.ioapic_base
+        madt_parse(madt_ptr)
     };
 }
 

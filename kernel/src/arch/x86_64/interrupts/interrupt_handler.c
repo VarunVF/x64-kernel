@@ -1,9 +1,14 @@
 #include "idt.h"
 #include "../../cpu.h"
 #include "../../../kprint.h"
+#include "../../../memory/util.h"
 #include "../../../panic.h"
 
-const char* exception_descriptions[32] = {
+#define LAPIC_EOI 0x0B0
+
+extern void* lapic_regs;
+
+static const char* exception_descriptions[32] = {
     "Divide Error",
     "Debug Exception",
     "NMI Interrupt",
@@ -38,7 +43,7 @@ const char* exception_descriptions[32] = {
     "(Intel Reserved)",
 };
 
-inline uint64_t read_cr2(void) {
+static inline uint64_t read_cr2(void) {
     uint64_t addr;
     __asm__ volatile ("mov %%cr2, %0" : "=r"(addr));
     return addr;
@@ -77,7 +82,7 @@ static void dump_registers(struct interrupt_registers* regs) {
 
 // Signal end of interrupt to the LAPIC
 static void lapic_send_eoi() {
-    // TODO
+    mmio_write32(lapic_regs, LAPIC_EOI, 0);
 }
 
 void interrupt_handler(struct interrupt_registers* regs) {
@@ -92,7 +97,14 @@ void interrupt_handler(struct interrupt_registers* regs) {
         panic("CPU Exception");
     } else {
         // Hardware interrupt
-        // TODO: handle...
+
+        // Timer: Vector 48
+        if (regs->interrupt_number == 48) {
+            static uint64_t timer_ticks = 0;
+            timer_ticks++;
+            if (timer_ticks % 100 == 0)
+                kprintf("Tick!\n");
+        }
 
         lapic_send_eoi();
     }

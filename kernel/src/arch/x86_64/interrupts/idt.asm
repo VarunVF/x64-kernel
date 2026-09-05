@@ -58,7 +58,7 @@ isr_%1:
 
 ; Generate the individual ISRs
 %assign i 0
-%rep 48
+%rep 256
     ; Exceptions that push an error code
     %if i == 8 || (i >= 10 && i <= 14) || i == 17 || i == 21
         ERROR_CODE_ISR i
@@ -83,14 +83,13 @@ isr_common:
 ; rdi = pointer to struct idt_pointer
 idt_flush:
     lidt [rdi]
-    sti         ; enable interrupts
     ret
 
 
 ; An array of pointers to each ISR generated above
 isr_stub_table:
 %assign i 0
-%rep 48
+%rep 256
     dq isr_%+i
 %assign i i+1
 %endrep

@@ -4,9 +4,12 @@
 
 #include "../limine-protocol/include/limine.h"
 
+#include "acpi/madt.h"
 #include "acpi/rsdp.h"
 #include "arch/cpu.h"
 #include "arch/vmm.h"
+#include "arch/x86_64/interrupts/apic.h"
+#include "arch/x86_64/interrupts/pit.h"
 #include "kprint.h"
 #include "macros.h"
 #include "memory/pmm.h"
@@ -37,7 +40,6 @@ static volatile struct limine_hhdm_request hhdm_request = {
     .id = LIMINE_HHDM_REQUEST_ID,
     .revision = 0,
 };
-uint64_t hhdm_offset = 0;
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_rsdp_request rsdp_request = {
@@ -54,6 +56,9 @@ static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
+uint64_t hhdm_offset = 0;
+void* lapic_regs = NULL;
+void* ioapic_regs = NULL;
 
 void kernel_init(void);
 
@@ -73,6 +78,8 @@ void render_putc(char c) {
 
 // Our kernel's entry point.
 void kernel_start(void) {
+    cpu_disable_interrupts();
+
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         cpu_halt_loop();
@@ -126,21 +133,25 @@ void kernel_init(void) {
     // Parse RSDP (for ACPI tables)
     void* rsdp_addr = rsdp_request.response->address;
     kprintf("RSDP found at %p\n", rsdp_addr);
-    struct rsdp_parse_result rsdp_info = rsdp_parse(rsdp_addr);
-    KASSERT_MSG(rsdp_info.parse_successful, "Failed to parse RSDP");
+    struct madt_parse_result madt_info = rsdp_parse(rsdp_addr).madt_info;
+    KASSERT_MSG(madt_info.parse_successful, "Failed to parse MADT");
 
     KASSERT_MSG(kmalloc_init() == 0, "Failed to initialise heap");
     vmm_add_initial_regions();
     
     // Map LAPIC and IOAPIC registers as strong uncacheable (UC)
     uint64_t mmio_flags = VM_FLAG_WRITE | VM_FLAG_MMIO | VM_FLAG_UC;
-    void* lapic_phys_base = (void*)(uint64_t)rsdp_info.lapic_base;
-    void* ioapic_phys_base = (void*)(uint64_t)rsdp_info.ioapic_base;
-    void* lapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, lapic_phys_base);
-    void* ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
+    void* lapic_phys_base = (void*)(uint64_t)madt_info.lapic_base;
+    void* ioapic_phys_base = (void*)(uint64_t)madt_info.ioapic_base;
+    lapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, lapic_phys_base);
+    ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
 
-    vmm_free(lapic_regs);
-    vmm_free(ioapic_regs);
+    KASSERT_MSG(lapic_init(lapic_regs) == 0, "Failed to initialise APIC");
+    pit_init(100);
+    ioapic_set_irq(ioapic_regs, &madt_info, 0, 48, 0);
+
+    cpu_enable_interrupts();
+    kprintf("Waiting for timer interrupts...\n");
 
     cpu_halt_loop();
 }

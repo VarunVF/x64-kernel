@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "acpi.h"
+#include "madt.h"
 
 // Root System Description Pointer, ACPI version 1.0
 struct rsdp {
@@ -43,9 +44,7 @@ struct xsdt {
 
 
 struct rsdp_parse_result {
-    bool parse_successful;
-    uint32_t lapic_base;
-    uint32_t ioapic_base;
+    struct madt_parse_result madt_info;
 };
 
 struct rsdp_parse_result rsdp_parse(const struct rsdp* rsdp_ptr);

@@ -16,6 +16,14 @@ void cpu_setup_interrupts(void) {
     kprintf("IDT initialised\n");
 }
 
+inline void cpu_disable_interrupts(void) {
+    __asm__ volatile ("cli");
+}
+
+inline void cpu_enable_interrupts(void) {
+    __asm__ volatile ("sti");
+}
+
 inline void cpu_halt(void) {
     __asm__ volatile ("hlt");
 }
@@ -24,10 +32,6 @@ inline void cpu_halt_loop(void) {
     for (;;) {
         __asm__ volatile ("hlt");
     }
-}
-
-inline void cpu_disable_interrupts(void) {
-    __asm__ volatile ("cli");
 }
 
 inline void cpu_invalidate_tlb_page(virt_addr virt) {

@@ -23,3 +23,11 @@ uint64_t align_up(uint64_t value, int alignment) {
     KASSERT(is_power_of_two(alignment));
     return (value + alignment - 1) & ~(alignment - 1);
 }
+
+inline uint32_t mmio_read32(void* base, uintptr_t offset) {
+    return *(volatile uint32_t*)((uintptr_t)base + offset);
+}
+
+inline void mmio_write32(void* base, uintptr_t offset, uint32_t value) {
+    *(volatile uint32_t*)((uintptr_t)base + offset) = value;
+}

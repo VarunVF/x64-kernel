@@ -21,14 +21,17 @@ void cpu_init(void);
 // Setup interrupt handlers and enable interrupts
 void cpu_setup_interrupts(void);
 
+// Enable interrupts
+void cpu_enable_interrupts(void);
+
+// Disable interrupts
+void cpu_disable_interrupts(void);
+
 // Execute a halt instruction
 void cpu_halt(void);
 
 // Execute a halt instruction in an infinite loop
 void cpu_halt_loop(void);
-
-// Disable interrupts
-void cpu_disable_interrupts(void);
 
 // Flush an entry in the TLB
 void cpu_invalidate_tlb_page(virt_addr virt);

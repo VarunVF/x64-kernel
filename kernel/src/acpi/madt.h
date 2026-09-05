@@ -54,6 +54,11 @@ struct madt_parse_result {
     bool parse_successful;
     uint32_t lapic_base;
     uint32_t ioapic_base;
+    struct irq_override {
+        uint32_t global_system_interrupt;
+        uint16_t flags;
+        bool is_present;
+    } overrides[16];
 };
 
 struct madt_parse_result madt_parse(const struct madt* madt_ptr);

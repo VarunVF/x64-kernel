@@ -9,22 +9,23 @@
 const struct madt_parse_result madt_failed_result = {
     false,
     0,
-    0
+    0,
+    {{0}}
 };
 
 struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
     kprintf("Parsing MADT\n");
 
+    struct madt_parse_result result = madt_failed_result;
+
     if (!acpi_checksum(madt_ptr, madt_ptr->header.length)) {
         kprintf("MADT checksum is invalid\n");
-        return madt_failed_result;
+        return result;
     }
     kprintf("MADT checksum validated\n");
 
-    uint32_t local_apic_addr = madt_ptr->local_apic_address;
-    uint32_t ioapic_addr = 0;
-    kprintf("Local APIC address: %p\n", (uint64_t)local_apic_addr);
-    
+    result.lapic_base = madt_ptr->local_apic_address;
+
     uint8_t* start = (uint8_t*)madt_ptr->records;
     uint8_t* end = start + madt_ptr->header.length;
     uint8_t* current = start;
@@ -45,21 +46,19 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
                 } else {
                     kprintf("Found online incapable CPU core: ");
                 }
-                kprintf("Processor ID %d, APIC ID %d\n",
-                    lapic->acpi_processor_id, lapic->apic_id);
-                    break;
-                }
+                kprintf("Processor ID %d, APIC ID %d\n", lapic->acpi_processor_id, lapic->apic_id);
+                break;
+            }
             case MADT_IOAPIC_RECORD: {
                 struct madt_ioapic_record* ioapic = (struct madt_ioapic_record*)current;
-                kprintf("Found I/O APIC: ID %d, Physical address %p\n",
-                    ioapic->ioapic_id, (void*)(uint64_t)ioapic->ioapic_address);
-                    ioapic_addr = ioapic->ioapic_address;
-                    break;
-                }
+                result.ioapic_base = ioapic->ioapic_address;
+                break;
+            }
             case MADT_ISO_RECORD: {
                 struct madt_iso_record* iso = (struct madt_iso_record*)current;
-                kprintf("Found IRQ Override: ISA IRQ %d maps to GSI %d\n",
-                    iso->irq_source, iso->global_system_interrupt);
+                result.overrides[iso->irq_source].global_system_interrupt = iso->global_system_interrupt;
+                result.overrides[iso->irq_source].flags = iso->flags;
+                result.overrides[iso->irq_source].is_present = true;
                 break;
             }
             default: {
@@ -72,9 +71,6 @@ struct madt_parse_result madt_parse(const struct madt* madt_ptr) {
         current += record->record_length;
     }
 
-    return (struct madt_parse_result){
-        true,
-        local_apic_addr,
-        ioapic_addr
-    };
+    result.parse_successful = true;
+    return result;
 }
