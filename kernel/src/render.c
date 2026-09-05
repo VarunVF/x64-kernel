@@ -1,9 +1,11 @@
 #include "render.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "../limine-protocol/include/limine.h"
+#include "kstring.h"
 
 extern const uint8_t font_data[128][8];
 
@@ -12,13 +14,14 @@ struct position {
     int y;
 };
 static struct position render_pos = {0, 0};
+static bool is_after_newline = true;
 
-void render_clear(struct limine_framebuffer* framebuffer, uint32_t color) {
+void render_clear(struct limine_framebuffer* framebuffer, uint32_t clear_color) {
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
     uint32_t *fb_ptr = framebuffer->address;
     for (size_t y = 0; y < framebuffer->height; y++) {
         for (size_t x = 0; x < framebuffer->width; x++) {
-            fb_ptr[y * (framebuffer->pitch / 4) + x] = color;
+            fb_ptr[y * (framebuffer->pitch / 4) + x] = clear_color;
         }
     }
 }
@@ -34,13 +37,49 @@ void render_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint32
     fb_ptr[pos_y * (framebuffer->pitch / 4) + pos_x] = color;
 }
 
-void render_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t color) {
+static inline bool render_should_scroll(struct limine_framebuffer* framebuffer) {
+    return (uint64_t)render_pos.y >= framebuffer->height / 8;
+}
+
+static void render_scroll(struct limine_framebuffer* framebuffer) {
+    const size_t line_size = framebuffer->pitch * 8;
+    const size_t fb_size = framebuffer->pitch * framebuffer->height;
+    const uint8_t* second_line_start = (uint8_t*)framebuffer->address + line_size;
+    memcpy(framebuffer->address, second_line_start, fb_size - line_size);
+}
+
+static void render_clear_line(struct limine_framebuffer* framebuffer, int line, uint32_t clear_color) {
+    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
+    const size_t line_offset = framebuffer->pitch * line * 8;
+    const uint8_t* line_start = (uint8_t*)framebuffer->address + line_offset;
+    uint32_t* fb_ptr = (uint32_t*)line_start;
+    for (size_t y = 0; y < 8; y++) {
+        for (size_t x = 0; x < framebuffer->width; x++) {
+            fb_ptr[y * (framebuffer->pitch / 4) + x] = clear_color;
+        }
+    }
+}
+
+void render_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t color, uint32_t clear_color) {
     uint32_t start_x = render_pos.x * 8;
     uint32_t start_y = render_pos.y * 8;
+
+    if (is_after_newline) {
+        render_clear_line(framebuffer, render_pos.y, clear_color);
+        is_after_newline = false;
+    }
 
     if (glyph == '\n') {
         render_pos.x = 0;
         render_pos.y++;
+
+        if (render_should_scroll(framebuffer)) {
+            render_scroll(framebuffer);
+            render_clear_line(framebuffer, render_pos.y - 1, clear_color);
+            render_pos.y -= 1;
+        }
+
+        is_after_newline = true;
         return;
     }
 
@@ -64,60 +103,4 @@ void render_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t co
     }
 
     render_pos.x++;
-}
-
-void render_str(struct limine_framebuffer* framebuffer, const char* str, uint32_t color) {
-    if (str == NULL) {
-        return;
-    }
-
-    char current;
-    while ((current = *str) != '\0') {
-        render_char(framebuffer, current, color);
-        str++;
-    }
-}
-
-void render_bin(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
-    const int total_bits = sizeof(number) * 8;
-    for (int i = total_bits - 1; i >= 0; i--) {
-        int bit = (number >> i) & 1;
-        if (bit) {
-            render_char(framebuffer, '1', color);
-        } else {
-            render_char(framebuffer, '0', color);
-        }
-    }
-}
-
-void render_hex(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
-    const int total_bytes = sizeof(number);
-    const int hex_digits = total_bytes * 2;
-    const char hex_table[16] = {
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-        'a', 'b', 'c', 'd', 'e', 'f'
-    };
-    for (int i = hex_digits - 1; i >= 0; i--) {
-        int digit = (number >> i * 4) & 0xf;
-        render_char(framebuffer, hex_table[digit], color);
-    }
-}
-
-void render_dec(struct limine_framebuffer* framebuffer, uint64_t number, uint32_t color) {
-    // UINT64_MAX (18446744073709551615UL) has 20 decimal digits,
-    // so we need space for at most 20 characters.
-    char digits[20] = {0};
-    int current_digit = 0;
-
-    // Append the digits from right to left.
-    while (number > 0) {
-        int digit = number % 10;
-        digits[current_digit++] = '0' + digit;
-        number /= 10;
-    }
-
-    // Print the digits in reverse order.
-    while (current_digit--) {
-        render_char(framebuffer, digits[current_digit], color);
-    }
 }

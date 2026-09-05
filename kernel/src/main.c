@@ -56,6 +56,9 @@ static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
+static const uint32_t text_color = 0x00ffffff;
+static const uint32_t clear_color = 0x00000077;
+
 uint64_t hhdm_offset = 0;
 void* lapic_regs = NULL;
 void* ioapic_regs = NULL;
@@ -73,7 +76,7 @@ void serial_putc(char c) {
 
 void render_putc(char c) {
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-    render_char(framebuffer, c, 0x00ffffff);
+    render_char(framebuffer, c, text_color, clear_color);
 }
 
 // Our kernel's entry point.
@@ -96,10 +99,6 @@ void kernel_start(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
 
-    // Colors used for printing
-    const uint32_t clear_color = 0x000077U;
-    const uint32_t red = 0x00ff0000U;
-
     render_clear(framebuffer, clear_color);
     kprint_add_output(render_putc);
 
@@ -108,7 +107,7 @@ void kernel_start(void) {
         kprint_add_output(serial_putc);
         kprintf("Serial port initialised\n");
     } else {
-        render_str(framebuffer, "Failed to initialise serial port\n", red);
+        kprintf("Warning: Failed to initialise serial port\n");
     }
 
     // Higher-half mapping offset
