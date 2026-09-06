@@ -163,6 +163,10 @@ int pmm_init(void) {
         }
     }
 
+    // The frame containing address 0 should be reserved, since 0 indicates allocation failure
+    pmm_set_bit(0);
+    kprintf("PMM reserved frame 0\n");
+
     // Mark the frames containing the bitmap itself as used
     // Integer division rounding up
     uint64_t bitmap_frame_count = (bitmap_size + PMM_FRAME_SIZE - 1) / PMM_FRAME_SIZE;
@@ -202,9 +206,13 @@ bool pmm_verify_bitmap(void) {
                     }
                     continue;
                 }
-                // Check other frames (should be free)
-                if (pmm_test_bit(f) == PMM_USED_VALUE) {
+                // Check other frames (should be free, except address 0)
+                if (f != 0 && pmm_test_bit(f) == PMM_USED_VALUE) {
                     kprintf("PMM Test Failed: Usable RAM frame %d is marked as USED!\n", f);
+                    return false;
+                }
+                if (f == 0 && pmm_test_bit(f) == PMM_FREE_VALUE) {
+                    kprintf("PMM Test Failed: First RAM frame (frame 0) is marked as FREE!\n", f);
                     return false;
                 }
             }
