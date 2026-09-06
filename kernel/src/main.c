@@ -109,6 +109,9 @@ void kernel_start(void) {
     } else {
         kprintf("Warning: Failed to initialise serial port\n");
     }
+    
+    kprintf("Framebuffer: size=%dx%d bpp=%d pitch=%d\n",
+        framebuffer->width, framebuffer->height, framebuffer->bpp, framebuffer->pitch);
 
     // Higher-half mapping offset
     hhdm_offset = hhdm_request.response->offset;

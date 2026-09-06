@@ -16,25 +16,27 @@ struct position {
 static struct position render_pos = {0, 0};
 static bool is_after_newline = true;
 
+// Note: we assume the framebuffer model is RGB with 32-bit pixels.
+
+static inline uint32_t* pixel_addr(struct limine_framebuffer* framebuffer, uint64_t x, uint64_t y) {
+    uint8_t* pixel_byte_addr = (uint8_t*)framebuffer->address + (y * framebuffer->pitch) + (x * framebuffer->bpp / 8);
+    return (uint32_t*)pixel_byte_addr;
+}
+
 void render_clear(struct limine_framebuffer* framebuffer, uint32_t clear_color) {
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
-    uint32_t *fb_ptr = framebuffer->address;
-    for (size_t y = 0; y < framebuffer->height; y++) {
-        for (size_t x = 0; x < framebuffer->width; x++) {
-            fb_ptr[y * (framebuffer->pitch / 4) + x] = clear_color;
+    for (uint64_t y = 0; y < framebuffer->height; y++) {
+        for (uint64_t x = 0; x < framebuffer->width; x++) {
+            *pixel_addr(framebuffer, x, y) = clear_color;
         }
     }
 }
 
-void render_pixel(struct limine_framebuffer* framebuffer, uint32_t pos_x, uint32_t pos_y, uint32_t color) {
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
-
-    if (pos_x >= framebuffer->width || pos_y >= framebuffer->height) {
+void render_pixel(struct limine_framebuffer* framebuffer, uint32_t x, uint32_t y, uint32_t color) {
+    if (x >= framebuffer->width || y >= framebuffer->height) {
         return;
     }
 
-    uint32_t* fb_ptr = framebuffer->address;
-    fb_ptr[pos_y * (framebuffer->pitch / 4) + pos_x] = color;
+    *pixel_addr(framebuffer, x, y) = color;
 }
 
 static inline bool render_should_scroll(struct limine_framebuffer* framebuffer) {
@@ -45,17 +47,14 @@ static void render_scroll(struct limine_framebuffer* framebuffer) {
     const size_t line_size = framebuffer->pitch * 8;
     const size_t fb_size = framebuffer->pitch * framebuffer->height;
     const uint8_t* second_line_start = (uint8_t*)framebuffer->address + line_size;
-    memcpy(framebuffer->address, second_line_start, fb_size - line_size);
+    memmove(framebuffer->address, second_line_start, fb_size - line_size);
 }
 
 static void render_clear_line(struct limine_framebuffer* framebuffer, int line, uint32_t clear_color) {
-    // Note: we assume the framebuffer model is RGB with 32-bit pixels.
-    const size_t line_offset = framebuffer->pitch * line * 8;
-    const uint8_t* line_start = (uint8_t*)framebuffer->address + line_offset;
-    uint32_t* fb_ptr = (uint32_t*)line_start;
-    for (size_t y = 0; y < 8; y++) {
-        for (size_t x = 0; x < framebuffer->width; x++) {
-            fb_ptr[y * (framebuffer->pitch / 4) + x] = clear_color;
+    uint64_t start_y = line * 8;
+    for (uint64_t y = start_y; y < start_y + 8; y++) {
+        for (uint64_t x = 0; x < framebuffer->width; x++) {
+            *pixel_addr(framebuffer, x, y) = clear_color;
         }
     }
 }
