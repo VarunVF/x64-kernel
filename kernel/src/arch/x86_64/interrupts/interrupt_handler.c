@@ -1,5 +1,6 @@
 #include "idt.h"
 #include "../../cpu.h"
+#include "../../../drivers/ps2kbd.h"
 #include "../../../kprint.h"
 #include "../../../memory/util.h"
 #include "../../../panic.h"
@@ -102,8 +103,8 @@ void interrupt_handler(struct interrupt_registers* regs) {
         if (regs->interrupt_number == 48) {
             static uint64_t timer_ticks = 0;
             timer_ticks++;
-            if (timer_ticks % 100 == 0)
-                kprintf("Tick! %d\n", timer_ticks);
+        } else if (regs->interrupt_number == 49) {
+            ps2kbd_input();
         }
 
         lapic_send_eoi();

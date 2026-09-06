@@ -10,12 +10,13 @@
 #include "arch/vmm.h"
 #include "arch/x86_64/interrupts/apic.h"
 #include "arch/x86_64/interrupts/pit.h"
+#include "drivers/ps2kbd.h"
+#include "drivers/render.h"
+#include "drivers/serial.h"
 #include "kprint.h"
 #include "macros.h"
 #include "memory/pmm.h"
 #include "memory/kmalloc.h"
-#include "render.h"
-#include "serial.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -147,13 +148,17 @@ void kernel_init(void) {
     void* ioapic_phys_base = (void*)(uint64_t)madt_info.ioapic_base;
     lapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, lapic_phys_base);
     ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
-
     KASSERT_MSG(lapic_init(lapic_regs) == 0, "Failed to initialise APIC");
+
     pit_init(100);
     ioapic_set_irq(ioapic_regs, &madt_info, 0, 48, 0);
+    kprintf("Initialised PIT\n");
+
+    ps2kbd_init();
+    ioapic_set_irq(ioapic_regs, &madt_info, 1, 49, 0);
+    kprintf("Initialised PS/2 Keyboard\n");
 
     cpu_enable_interrupts();
-    kprintf("Waiting for timer interrupts...\n");
 
     cpu_halt_loop();
 }

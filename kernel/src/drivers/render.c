@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../limine-protocol/include/limine.h"
-#include "kstring.h"
+#include "../../limine-protocol/include/limine.h"
+#include "../kstring.h"
 
 extern const uint8_t font_data[128][8];
 
