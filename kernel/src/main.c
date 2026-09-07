@@ -9,7 +9,7 @@
 #include "arch/cpu.h"
 #include "arch/vmm.h"
 #include "arch/x86_64/interrupts/apic.h"
-#include "arch/x86_64/interrupts/pit.h"
+#include "drivers/pit.h"
 #include "drivers/ps2kbd.h"
 #include "drivers/render.h"
 #include "drivers/serial.h"
@@ -159,6 +159,25 @@ void kernel_init(void) {
     kprintf("Initialised PS/2 Keyboard\n");
 
     cpu_enable_interrupts();
+
+    kprintf("Press 'T' to view timer ticks.\n");
+    while (true) {
+        if (!ps2kbd_has_event()) {
+            cpu_halt();
+            continue;
+        }
+    
+        struct ps2kbd_event event = {0};
+        ps2kbd_get_event(&event);
+        
+        const uint8_t t_scancode = 20;
+        if (event.scancode == t_scancode) {
+            kprintf("Timer ticks: %d\n", pit_get_ticks());
+        } else {
+            kprintf("Scancode: %d, %s\n", event.scancode,
+                event.type == KBD_EVENT_TYPE_PRESS ? "pressed" : "released");
+        }
+    }
 
     cpu_halt_loop();
 }

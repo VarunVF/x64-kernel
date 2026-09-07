@@ -1,5 +1,8 @@
+#include <stdint.h>
+
 #include "idt.h"
 #include "../../cpu.h"
+#include "../../../drivers/pit.h"
 #include "../../../drivers/ps2kbd.h"
 #include "../../../kprint.h"
 #include "../../../memory/util.h"
@@ -87,26 +90,24 @@ static void lapic_send_eoi() {
 }
 
 void interrupt_handler(struct interrupt_registers* regs) {
-    if (regs->interrupt_number < 32) {
+    uint64_t vector = regs->interrupt_number;
+    if (vector < 32) {
         // Exception
         // TODO: Not all exceptions are fatal, for now just print debug info and halt
 
         cpu_disable_interrupts();
-        kprintf("CPU exception: %s\n", exception_descriptions[regs->interrupt_number]);
+        kprintf("CPU exception: %s\n", exception_descriptions[vector]);
         kprintf("Error code: %d\n", regs->error_code);
         dump_registers(regs);
         panic("CPU Exception");
     } else {
         // Hardware interrupt
 
-        // Timer: Vector 48
-        if (regs->interrupt_number == 48) {
-            static uint64_t timer_ticks = 0;
-            timer_ticks++;
-        } else if (regs->interrupt_number == 49) {
-            ps2kbd_input();
-        }
-
+        if (vector == 48)
+            pit_irq();
+        else if (vector == 49)
+            ps2kbd_irq();
+        
         lapic_send_eoi();
     }
 }
