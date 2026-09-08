@@ -5,10 +5,12 @@
 #include "../../../drivers/pit.h"
 #include "../../../drivers/ps2kbd.h"
 #include "../../../kprint.h"
+#include "../../../macros.h"
 #include "../../../memory/util.h"
 #include "../../../panic.h"
 
 #define LAPIC_EOI 0x0B0
+#define MAX_NESTED_EXCEPTIONS 3
 
 extern void* lapic_regs;
 
@@ -46,6 +48,8 @@ static const char* exception_descriptions[32] = {
     "(Intel Reserved)",
     "(Intel Reserved)",
 };
+
+static int nested_exceptions = 1;
 
 static inline uint64_t read_cr2(void) {
     uint64_t addr;
@@ -90,6 +94,10 @@ static void lapic_send_eoi() {
 }
 
 void interrupt_handler(struct interrupt_registers* regs) {
+    nested_exceptions++;
+    if (nested_exceptions > MAX_NESTED_EXCEPTIONS)
+        panic("Too many nested exceptions (max " TO_STRING(MAX_NESTED_EXCEPTIONS) ")");
+
     uint64_t vector = regs->interrupt_number;
     if (vector < 32) {
         // Exception
@@ -110,4 +118,6 @@ void interrupt_handler(struct interrupt_registers* regs) {
         
         lapic_send_eoi();
     }
+
+    nested_exceptions--;
 }
