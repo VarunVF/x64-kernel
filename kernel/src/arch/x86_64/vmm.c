@@ -80,6 +80,9 @@ static uint64_t* vmm_find_entry(uint64_t* table, uint64_t index) {
 static uint64_t* vmm_find_or_create_entry(uint64_t* table, uint64_t index, uint64_t pt_flags) {
     if (!vmm_is_entry_present(table, index)) {
         phys_addr pml4_entry_phys = pmm_alloc(1);
+        if (pml4_entry_phys == 0)
+            return NULL;
+        
         memset((void*)phys_to_virt(pml4_entry_phys), 0, VMM_PAGE_SIZE);
         table[index] = pml4_entry_phys | pt_flags;
     }
@@ -213,6 +216,9 @@ void vmm_switch(vmm_switch_fn switch_function) {
     // Allocate a new stack
     const size_t stack_size = 16 * 1024;  // 16KiB stack
     phys_addr stack_phys_base = pmm_alloc(stack_size / PMM_FRAME_SIZE);
+    if (stack_phys_base == 0)
+        return;
+
     virt_addr stack_virt_base = phys_to_virt(stack_phys_base);
     vmm_map_pages(pml4_virt, 4, stack_virt_base, stack_phys_base, VM_FLAG_WRITE);
     memset((void*)stack_virt_base, 0, 4 * VMM_PAGE_SIZE);
@@ -221,9 +227,7 @@ void vmm_switch(vmm_switch_fn switch_function) {
     uint64_t new_rsp = stack_virt_base + 4 * VMM_PAGE_SIZE;
     vmm_switch_stack_and_cr3(masked_pml4_phys, new_rsp, switch_function);
 
-    while (true) {
-        // Unreachable
-    }
+    cpu_halt_loop();
 }
 
 void vmm_map_page(void* root, virt_addr virt, phys_addr phys, uint64_t vm_flags) {
@@ -330,8 +334,11 @@ void* vmm_alloc(size_t length, uint64_t vm_flags, void* arg) {
         phys = (phys_addr)arg;
     else
         phys = pmm_alloc(length / VMM_PAGE_SIZE);  // Immediate backing
-    vmm_map_pages(pml4_virt, length / VMM_PAGE_SIZE, latest->base, phys, vm_flags);
+    
+    if (phys == 0)
+        return NULL;
 
+    vmm_map_pages(pml4_virt, length / VMM_PAGE_SIZE, latest->base, phys, vm_flags);
     return (void*)latest->base;
 }
 

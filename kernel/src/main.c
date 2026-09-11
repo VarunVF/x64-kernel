@@ -126,7 +126,8 @@ void kernel_start(void) {
     KASSERT_MSG(vmm_init() == 0, "Failed to initialise VMM");
 
     vmm_switch(kernel_init);
-
+    
+    panic("Failed to switch to new stack / page tables");
     cpu_halt_loop();
 }
 
