@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "../../../acpi/madt.h"
+#include "acpi/madt.h"
 
 // Check if CPU supports APIC and Local APIC has not been disabled in MSRs
 bool lapic_is_usable();

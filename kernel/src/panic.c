@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "arch/cpu.h"
+#include "cpu.h"
 #include "kprint.h"
 
 #define MAX_STACK_TRACE_DEPTH 32

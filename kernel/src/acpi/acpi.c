@@ -1,4 +1,4 @@
-#include "acpi.h"
+#include "acpi/acpi.h"
 
 #include <stdbool.h>
 #include <stdint.h>

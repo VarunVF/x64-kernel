@@ -1,11 +1,11 @@
-#include "ps2kbd.h"
+#include "drivers/ps2kbd.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../arch/cpu.h"
-#include "../kprint.h"
+#include "cpu.h"
+#include "kprint.h"
 
 #define PS2_DATA 0x60
 #define PS2_STATUS 0x64

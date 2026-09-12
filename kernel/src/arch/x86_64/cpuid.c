@@ -1,4 +1,4 @@
-#include "./cpuid.h"
+#include "arch/x86_64/cpuid.h"
 
 #include <stdint.h>
 

@@ -1,6 +1,6 @@
-#include "serial.h"
+#include "drivers/serial.h"
 
-#include "../arch/cpu.h"
+#include "cpu.h"
 
 int serial_init(uint16_t port) {
     cpu_outb(port + 1, 0x00);  // Disable all interrupts

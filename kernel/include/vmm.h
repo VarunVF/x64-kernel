@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../types.h"
+#include "types.h"
 
 #define VMM_PAGE_SIZE PMM_FRAME_SIZE
 

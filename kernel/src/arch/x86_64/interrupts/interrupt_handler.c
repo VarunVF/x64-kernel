@@ -1,13 +1,13 @@
 #include <stdint.h>
 
-#include "idt.h"
-#include "../../cpu.h"
-#include "../../../drivers/pit.h"
-#include "../../../drivers/ps2kbd.h"
-#include "../../../kprint.h"
-#include "../../../macros.h"
-#include "../../../memory/util.h"
-#include "../../../panic.h"
+#include "arch/x86_64/idt.h"
+#include "cpu.h"
+#include "drivers/pit.h"
+#include "drivers/ps2kbd.h"
+#include "kprint.h"
+#include "macros.h"
+#include "memory/util.h"
+#include "panic.h"
 
 #define LAPIC_EOI 0x0B0
 #define MAX_NESTED_EXCEPTIONS 3

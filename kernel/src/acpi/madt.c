@@ -1,10 +1,10 @@
-#include "madt.h"
+#include "acpi/madt.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../kprint.h"
+#include "kprint.h"
 
 const struct madt_parse_result madt_failed_result = {
     false,

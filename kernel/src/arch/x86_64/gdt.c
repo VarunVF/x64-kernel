@@ -1,6 +1,6 @@
-#include "gdt.h"
+#include "arch/x86_64/gdt.h"
 
-#include "../../../types.h"
+#include "types.h"
 
 extern void gdt_flush(struct gdt_pointer*);
 

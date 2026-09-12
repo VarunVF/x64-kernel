@@ -1,21 +1,21 @@
-#include "../vmm.h"
+#include "vmm.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../../limine-protocol/include/limine.h"
+#include <limine.h>
 
-#include "./cpuid.h"
-#include "../cpu.h"
-#include "../../memory/kmalloc.h"
-#include "../../memory/pmm.h"
-#include "../../memory/util.h"
-#include "../../kprint.h"
-#include "../../kstring.h"
-#include "../../macros.h"
-#include "../../panic.h"
-#include "../../types.h"
+#include "arch/x86_64/cpuid.h"
+#include "cpu.h"
+#include "kprint.h"
+#include "kstring.h"
+#include "macros.h"
+#include "memory/kmalloc.h"
+#include "memory/pmm.h"
+#include "memory/util.h"
+#include "panic.h"
+#include "types.h"
 
 #define MIN_ALLOC_ADDR 0xffff800000000000
 

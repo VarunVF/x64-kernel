@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "../types.h"
+#include "types.h"
 
 #ifdef __x86_64__
 #define CPU_READ_INSTRUCTION_PTR() ({                                   \

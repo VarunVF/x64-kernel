@@ -1,5 +1,3 @@
-#include "kstring.h"
-
 #include <stddef.h>
 #include <stdint.h>
 

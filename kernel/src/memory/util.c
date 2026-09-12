@@ -1,9 +1,9 @@
-#include "util.h"
+#include "memory/util.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "../macros.h"
+#include "macros.h"
 
 extern uint64_t hhdm_offset;
 

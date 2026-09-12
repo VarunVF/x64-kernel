@@ -2,21 +2,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../limine-protocol/include/limine.h"
+#include <limine.h>
 
 #include "acpi/madt.h"
 #include "acpi/rsdp.h"
-#include "arch/cpu.h"
-#include "arch/vmm.h"
-#include "arch/x86_64/interrupts/apic.h"
+#include "arch/x86_64/apic.h"
+#include "cpu.h"
 #include "drivers/pit.h"
 #include "drivers/ps2kbd.h"
 #include "drivers/render.h"
 #include "drivers/serial.h"
 #include "kprint.h"
 #include "macros.h"
-#include "memory/pmm.h"
 #include "memory/kmalloc.h"
+#include "memory/pmm.h"
+#include "vmm.h"
 
 // Set the base revision to 6, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.

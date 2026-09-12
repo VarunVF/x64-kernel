@@ -1,10 +1,10 @@
-#include "../cpu.h"
+#include "cpu.h"
 
 #include <stdint.h>
 
-#include "gdt/gdt.h"
-#include "interrupts/idt.h"
-#include "../../kprint.h"
+#include "arch/x86_64/gdt.h"
+#include "arch/x86_64/idt.h"
+#include "kprint.h"
 
 void cpu_init(void) {
     gdt_init();

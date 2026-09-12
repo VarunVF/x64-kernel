@@ -1,8 +1,8 @@
-#include "pit.h"
+#include "drivers/pit.h"
 
 #include <stdint.h>
 
-#include "../arch/cpu.h"
+#include "cpu.h"
 
 static uint64_t timer_ticks = 0;
 

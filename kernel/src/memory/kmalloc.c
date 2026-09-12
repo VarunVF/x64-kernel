@@ -1,17 +1,17 @@
-#include "kmalloc.h"
+#include "memory/kmalloc.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../limine-protocol/include/limine.h"
+#include <limine.h>
 
-#include "../arch/vmm.h"
-#include "../kprint.h"
-#include "../macros.h"
-#include "../types.h"
-#include "pmm.h"
-#include "util.h"
+#include "vmm.h"
+#include "kprint.h"
+#include "macros.h"
+#include "memory/pmm.h"
+#include "memory/util.h"
+#include "types.h"
 
 #define HEAP_INITIAL_PAGES 2
 #define HEAP_EXPAND_PAGES 2

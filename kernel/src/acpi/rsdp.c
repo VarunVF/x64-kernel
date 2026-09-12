@@ -1,15 +1,15 @@
-#include "rsdp.h"
+#include "acpi/rsdp.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "acpi.h"
-#include "madt.h"
-#include "../kprint.h"
-#include "../kstring.h"
-#include "../memory/util.h"
-#include "../types.h"
+#include "acpi/acpi.h"
+#include "acpi/madt.h"
+#include "kprint.h"
+#include "kstring.h"
+#include "memory/util.h"
+#include "types.h"
 
 const struct rsdp_parse_result rsdp_failed_result = {
     .madt_info = {

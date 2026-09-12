@@ -1,11 +1,11 @@
-#include "apic.h"
+#include "arch/x86_64/apic.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "../cpuid.h"
-#include "../../../acpi/madt.h"
-#include "../../../memory/util.h"
+#include "acpi/madt.h"
+#include "arch/x86_64/cpuid.h"
+#include "memory/util.h"
 
 #define LAPIC_SVR 0x0F0
 #define LAPIC_SVR_APIC_ENABLE (1 << 8)

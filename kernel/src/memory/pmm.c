@@ -1,15 +1,15 @@
-#include "pmm.h"
+#include "memory/pmm.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../../limine-protocol/include/limine.h"
+#include <limine.h>
 
-#include "util.h"
-#include "../kprint.h"
-#include "../kstring.h"
-#include "../types.h"
+#include "kprint.h"
+#include "kstring.h"
+#include "memory/util.h"
+#include "types.h"
 
 // Bitmap physical memory allocator
 
