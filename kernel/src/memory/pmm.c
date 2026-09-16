@@ -31,25 +31,27 @@ static const char* memory_types[9] = {
     "RESERVED_MAPPED",
 };
 
-static uint8_t* bitmap = NULL;
-static uint64_t bitmap_size = 0;
-static phys_addr bitmap_phys_base = 0;
-static uint64_t bitmap_start_frame = 0;
-static uint64_t bitmap_end_frame = 0;
+static struct pmm_state {
+    uint8_t* bitmap;
+    uint64_t bitmap_size;
+    phys_addr bitmap_phys_base;
+    uint64_t bitmap_start_frame;
+    uint64_t bitmap_end_frame;
+} pmm;
 
 // Mark a frame as used
 static void pmm_set_bit(uint64_t frame) {
-    bitmap[frame / 8] |= 0x80 >> (frame % 8);
+    pmm.bitmap[frame / 8] |= 0x80 >> (frame % 8);
 }
 
 // Mark a frame as free
 static void pmm_clear_bit(uint64_t frame) {
-    bitmap[frame / 8] &= ~(0x80 >> (frame % 8));
+    pmm.bitmap[frame / 8] &= ~(0x80 >> (frame % 8));
 }
 
 // Test whether a frame is used
 static bool pmm_test_bit(uint64_t frame) {
-    return (bitmap[frame / 8] & (0x80 >> (frame % 8))) != 0;
+    return (pmm.bitmap[frame / 8] & (0x80 >> (frame % 8))) != 0;
 }
 
 static void pmm_set_value(uint64_t frame, uint8_t value) {
@@ -88,7 +90,7 @@ static void pmm_assign(uint64_t first_frame, uint64_t last_frame, uint8_t value)
     uint64_t aligned_end_frame = end_byte_idx * 8;
     if (end_byte_idx > first_byte_idx + 1) {
         uint8_t fill_value = value ? 0xFF : 0x00;
-        memset(bitmap + first_byte_idx + 1, fill_value, end_byte_idx - first_byte_idx - 1);
+        memset(pmm.bitmap + first_byte_idx + 1, fill_value, end_byte_idx - first_byte_idx - 1);
     }
     
     // Clear bits in the last byte
@@ -98,6 +100,8 @@ static void pmm_assign(uint64_t first_frame, uint64_t last_frame, uint8_t value)
 }
 
 int pmm_init(void) {
+    memset(&pmm, 0, sizeof(pmm));
+
     if (memmap_request.response == NULL) {
         return 1;
     }
@@ -127,21 +131,21 @@ int pmm_init(void) {
         }
     }
     
-    bitmap_size = highest_ram_address / PMM_FRAME_SIZE / 8;
+    pmm.bitmap_size = highest_ram_address / PMM_FRAME_SIZE / 8;
 
     kprintf("Highest RAM address found: %p\n", highest_ram_address);
     kprintf("Found %dMiB of usable RAM\n", usable_ram_bytes / 1024 / 1024);
-    kprintf("Bitmap allocator requires %dKiB of RAM\n", bitmap_size / 1024);
+    kprintf("Bitmap allocator requires %dKiB of RAM\n", pmm.bitmap_size / 1024);
 
     // Find space to store the bitmap
     bool found_space = false;
     for (uint64_t i = 0; i < memory_map->entry_count; i++) {
         struct limine_memmap_entry* entry = memory_map->entries[i];
-        if (entry->type == LIMINE_MEMMAP_USABLE && entry->length >= bitmap_size) {
-            bitmap = (uint8_t*)phys_to_virt(entry->base);
-            bitmap_phys_base = entry->base;
+        if (entry->type == LIMINE_MEMMAP_USABLE && entry->length >= pmm.bitmap_size) {
+            pmm.bitmap = (uint8_t*)phys_to_virt(entry->base);
+            pmm.bitmap_phys_base = entry->base;
             found_space = true;
-            kprintf("Found space for bitmap at %p\n", (void*)bitmap);
+            kprintf("Found space for bitmap at %p\n", (void*)pmm.bitmap);
             break;
         }
     }
@@ -151,7 +155,7 @@ int pmm_init(void) {
     }
 
     // Mark all frames as used initially
-    memset(bitmap, 0xFF, bitmap_size);
+    memset(pmm.bitmap, 0xFF, pmm.bitmap_size);
 
     // Clear bits for usable memory regions
     for (uint64_t i = 0; i < memory_map->entry_count; i++) {
@@ -169,15 +173,15 @@ int pmm_init(void) {
 
     // Mark the frames containing the bitmap itself as used
     // Integer division rounding up
-    uint64_t bitmap_frame_count = (bitmap_size + PMM_FRAME_SIZE - 1) / PMM_FRAME_SIZE;
-    bitmap_start_frame = bitmap_phys_base / PMM_FRAME_SIZE;
-    bitmap_end_frame = bitmap_start_frame + bitmap_frame_count;
-    pmm_assign(bitmap_start_frame, bitmap_end_frame, PMM_USED_VALUE);
+    uint64_t bitmap_frame_count = (pmm.bitmap_size + PMM_FRAME_SIZE - 1) / PMM_FRAME_SIZE;
+    pmm.bitmap_start_frame = pmm.bitmap_phys_base / PMM_FRAME_SIZE;
+    pmm.bitmap_end_frame = pmm.bitmap_start_frame + bitmap_frame_count;
+    pmm_assign(pmm.bitmap_start_frame, pmm.bitmap_end_frame, PMM_USED_VALUE);
 
     // Debug
     kprintf("Bitmap is in frames %d to %d (phys %p to %p)\n",
-        bitmap_start_frame, bitmap_end_frame, bitmap_start_frame * PMM_FRAME_SIZE,
-        bitmap_end_frame * PMM_FRAME_SIZE);
+        pmm.bitmap_start_frame, pmm.bitmap_end_frame, pmm.bitmap_start_frame * PMM_FRAME_SIZE,
+        pmm.bitmap_end_frame * PMM_FRAME_SIZE);
 
     kprintf("Initialised PMM\n");
     return 0;
@@ -199,7 +203,7 @@ bool pmm_verify_bitmap(void) {
             // Check usable memory areas
             for (uint64_t f = start_frame; f < end_frame; f++) {
                 // Check frames containing bitmap (should be marked used)
-                if (f >= bitmap_start_frame && f < bitmap_end_frame) {
+                if (f >= pmm.bitmap_start_frame && f < pmm.bitmap_end_frame) {
                     if (pmm_test_bit(f) == PMM_FREE_VALUE) {
                         kprintf("PMM Test Failed: Frame %d containing bitmap is marked as FREE!\n", f);
                         return false;
@@ -220,7 +224,7 @@ bool pmm_verify_bitmap(void) {
             // Ensure reserved areas remained 1
             for (uint64_t f = start_frame; f < end_frame; f++) {
                 // We only care about frames tracked by the bitmap
-                if (f >= bitmap_end_frame) {
+                if (f >= pmm.bitmap_end_frame) {
                     break;
                 }
 
@@ -241,7 +245,7 @@ phys_addr pmm_alloc(uint64_t size) {
         return 0;
     }
 
-    const uint64_t max_frame = bitmap_size * 8;
+    const uint64_t max_frame = pmm.bitmap_size * 8;
     uint64_t left = 0;
     
     // We might want to check 64 bits at a time instead of every bit.

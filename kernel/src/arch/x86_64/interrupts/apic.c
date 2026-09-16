@@ -26,15 +26,15 @@ const uint32_t CPUID_FEAT_EDX_APIC = 1 << 9;
 
 // Check if CPU has model-specific registers
 static bool cpu_has_msr() {
-    static uint32_t eax, ebx, ecx, edx;
+    uint32_t eax, ebx, ecx, edx;
     cpuid(1, &eax, &ebx, &ecx, &edx);
     return edx & CPUID_FLAG_MSR;
 }
 
 bool lapic_is_usable() {
-   static uint32_t eax, ebx, ecx, edx;
-   cpuid(1, &eax, &ebx, &ecx, &edx);
-   return edx & CPUID_FEAT_EDX_APIC;
+    uint32_t eax, ebx, ecx, edx;
+    cpuid(1, &eax, &ebx, &ecx, &edx);
+    return edx & CPUID_FEAT_EDX_APIC;
 }
 
 static inline void cpu_read_msr(uint32_t msr, uint32_t* lo, uint32_t* hi) {
