@@ -59,6 +59,10 @@ static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARK
 
 static const uint32_t text_color = 0x00ffffff;
 static const uint32_t clear_color = 0x00000077;
+static const uint8_t pit_isa_irq = 0;
+static const uint8_t ps2kbd_isa_irq = 1;
+static const uint8_t pit_vector = 48;
+static const uint8_t ps2kbd_vector = 49;
 
 uint64_t hhdm_offset = 0;
 void* lapic_regs = NULL;
@@ -151,25 +155,25 @@ void kernel_init(void) {
     ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
     KASSERT_MSG(lapic_init(lapic_regs) == 0, "Failed to initialise APIC");
 
-    pit_init(100);
-    ioapic_set_irq(ioapic_regs, &madt_info, 0, 48, 0);
+    pit_init(pit_vector, 100);
+    ioapic_set_irq(ioapic_regs, &madt_info, pit_isa_irq, pit_vector, 0);
     kprintf("Initialised PIT\n");
 
-    ps2kbd_init();
-    ioapic_set_irq(ioapic_regs, &madt_info, 1, 49, 0);
+    struct ps2kbd_state* ps2kbd = ps2kbd_init(ps2kbd_vector);
+    ioapic_set_irq(ioapic_regs, &madt_info, ps2kbd_isa_irq, ps2kbd_vector, 0);
     kprintf("Initialised PS/2 Keyboard\n");
 
     cpu_enable_interrupts();
 
     kprintf("Press 'T' to view timer ticks.\n");
     while (true) {
-        if (!ps2kbd_has_event()) {
+        if (!ps2kbd_has_event(ps2kbd)) {
             cpu_halt();
             continue;
         }
     
         struct ps2kbd_event event = {0};
-        ps2kbd_get_event(&event);
+        ps2kbd_get_event(ps2kbd, &event);
         
         const uint8_t t_scancode = 20;
         if (event.scancode == t_scancode) {
@@ -180,5 +184,6 @@ void kernel_init(void) {
         }
     }
 
+    ps2kbd_free(ps2kbd, ps2kbd_vector);
     cpu_halt_loop();
 }

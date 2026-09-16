@@ -1,9 +1,9 @@
+#include <stddef.h>
 #include <stdint.h>
 
 #include "arch/x86_64/idt.h"
+#include "arch/x86_64/interrupt_handler.h"
 #include "cpu.h"
-#include "drivers/pit.h"
-#include "drivers/ps2kbd.h"
 #include "kprint.h"
 #include "macros.h"
 #include "memory/util.h"
@@ -11,6 +11,7 @@
 
 #define LAPIC_EOI 0x0B0
 #define MAX_NESTED_EXCEPTIONS 3
+#define MAX_INTERRUPT_VECTORS 256
 
 extern void* lapic_regs;
 
@@ -48,8 +49,8 @@ static const char* exception_descriptions[32] = {
     "(Intel Reserved)",
     "(Intel Reserved)",
 };
-
 static int nested_exceptions = 1;
+static struct interrupt_handler_entry handler_entries[MAX_INTERRUPT_VECTORS];
 
 static inline uint64_t read_cr2(void) {
     uint64_t addr;
@@ -93,12 +94,18 @@ static void lapic_send_eoi() {
     mmio_write32(lapic_regs, LAPIC_EOI, 0);
 }
 
+void interrupt_set_handler(uint8_t vector, handler_fn handler, void* context) {
+    handler_entries[vector] = (struct interrupt_handler_entry){handler, context};
+}
+
 void interrupt_handler(struct interrupt_registers* regs) {
     nested_exceptions++;
     if (nested_exceptions > MAX_NESTED_EXCEPTIONS)
         panic("Too many nested exceptions (max " TO_STRING(MAX_NESTED_EXCEPTIONS) ")");
 
     uint64_t vector = regs->interrupt_number;
+    KASSERT(vector < 256);
+    
     if (vector < 32) {
         // Exception
         // TODO: Not all exceptions are fatal, for now just print debug info and halt
@@ -111,10 +118,10 @@ void interrupt_handler(struct interrupt_registers* regs) {
     } else {
         // Hardware interrupt
 
-        if (vector == 48)
-            pit_irq();
-        else if (vector == 49)
-            ps2kbd_irq();
+        struct interrupt_handler_entry* entry = &handler_entries[vector];
+        if (entry->handler != NULL) {
+            entry->handler(entry->context);
+        }
         
         lapic_send_eoi();
     }
