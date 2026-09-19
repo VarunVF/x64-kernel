@@ -24,6 +24,32 @@ static inline uint32_t* pixel_addr(struct limine_framebuffer* framebuffer, uint6
     return (uint32_t*)pixel_byte_addr;
 }
 
+void render_move_pos(int dx, int dy) {
+    struct position final_pos = {
+        render_pos.x + dx,
+        render_pos.y + dy
+    };
+
+    if (final_pos.x >= 0) {
+        render_pos.x += dx;
+    }
+    if (final_pos.y >= 0) {
+        render_pos.y += dy;
+    }
+}
+
+void render_reset_pos() {
+    render_pos = (struct position){ 0, 0 };
+}
+
+void render_clear_pos(struct limine_framebuffer* framebuffer, uint32_t clear_color) {
+    for (int y = render_pos.y * 8; y < render_pos.y * 8 + 8; y++) {
+        for (int x = render_pos.x * 8; x < render_pos.x * 8 + 8; x++) {
+            *pixel_addr(framebuffer, x, y) = clear_color;
+        }
+    }
+}
+
 void render_clear(struct limine_framebuffer* framebuffer, uint32_t clear_color) {
     for (uint64_t y = 0; y < framebuffer->height; y++) {
         for (uint64_t x = 0; x < framebuffer->width; x++) {

@@ -6,11 +6,11 @@
 
 #include <limine.h>
 
-#include "vmm.h"
 #include "kprint.h"
 #include "macros.h"
 #include "memory/pmm.h"
 #include "memory/util.h"
+#include "memory/vmm.h"
 #include "types.h"
 
 #define HEAP_INITIAL_PAGES 2

@@ -13,11 +13,14 @@
 #include "drivers/render.h"
 #include "drivers/serial.h"
 #include "kprint.h"
+#include "kstring.h"
 #include "limine_requests.h"
 #include "macros.h"
 #include "memory/kmalloc.h"
 #include "memory/pmm.h"
-#include "vmm.h"
+#include "memory/vmm.h"
+#include "shell.h"
+#include "string_type.h"
 
 static const uint32_t text_color = 0x00ffffff;
 static const uint32_t clear_color = 0x00000077;
@@ -25,6 +28,8 @@ static const uint8_t pit_isa_irq = 0;
 static const uint8_t ps2kbd_isa_irq = 1;
 static const uint8_t pit_vector = 48;
 static const uint8_t ps2kbd_vector = 49;
+
+static struct limine_framebuffer *framebuffer;
 
 uint64_t hhdm_offset = 0;
 void* lapic_regs = NULL;
@@ -64,7 +69,7 @@ void kernel_start(void) {
     }
 
     // Fetch the first framebuffer.
-    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    framebuffer = framebuffer_request.response->framebuffers[0];
 
     render_clear(framebuffer, clear_color);
     kprint_add_output(render_putc);
@@ -126,25 +131,7 @@ void kernel_init(void) {
     kprintf("Initialised PS/2 Keyboard\n");
 
     cpu_enable_interrupts();
-
-    kprintf("Press 'T' to view timer ticks.\n");
-    while (true) {
-        if (!ps2kbd_has_event(ps2kbd)) {
-            cpu_halt();
-            continue;
-        }
-    
-        struct ps2kbd_event event = {0};
-        ps2kbd_get_event(ps2kbd, &event);
-        
-        const uint8_t t_scancode = 20;
-        if (event.scancode == t_scancode) {
-            kprintf("Timer ticks: %d\n", pit_get_ticks());
-        } else {
-            kprintf("Scancode: %d, %s\n", event.scancode,
-                event.type == KBD_EVENT_TYPE_PRESS ? "pressed" : "released");
-        }
-    }
+    shell_run(ps2kbd, framebuffer, clear_color);
 
     ps2kbd_free(ps2kbd, ps2kbd_vector);
     cpu_halt_loop();
