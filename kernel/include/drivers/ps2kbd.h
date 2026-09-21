@@ -16,6 +16,7 @@ struct ps2kbd_event {
 
 struct ps2kbd_state;
 
+// Returns NULL on failure
 struct ps2kbd_state* ps2kbd_init(uint8_t vector);
 void ps2kbd_free(struct ps2kbd_state* ps2kbd, uint8_t vector);
 bool ps2kbd_has_event(struct ps2kbd_state* ps2kbd);

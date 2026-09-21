@@ -13,14 +13,12 @@
 #include "drivers/render.h"
 #include "drivers/serial.h"
 #include "kprint.h"
-#include "kstring.h"
 #include "limine_requests.h"
 #include "macros.h"
 #include "memory/kmalloc.h"
 #include "memory/pmm.h"
 #include "memory/vmm.h"
 #include "shell.h"
-#include "string_type.h"
 
 static const uint32_t text_color = 0x00ffffff;
 static const uint32_t clear_color = 0x00000077;
@@ -127,8 +125,13 @@ void kernel_init(void) {
     kprintf("Initialised PIT\n");
 
     struct ps2kbd_state* ps2kbd = ps2kbd_init(ps2kbd_vector);
-    ioapic_set_irq(ioapic_regs, &madt_info, ps2kbd_isa_irq, ps2kbd_vector, 0);
-    kprintf("Initialised PS/2 Keyboard\n");
+    if (ps2kbd == NULL) {
+        kprintf("Failed to initialise PS/2 Keyboard\n");
+        cpu_halt_loop();
+    } else {
+        ioapic_set_irq(ioapic_regs, &madt_info, ps2kbd_isa_irq, ps2kbd_vector, 0);
+        kprintf("Initialised PS/2 Keyboard\n");
+    }
 
     cpu_enable_interrupts();
     shell_run(ps2kbd, framebuffer, clear_color);
