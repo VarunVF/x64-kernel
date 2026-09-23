@@ -55,6 +55,6 @@ void* vmm_alloc(size_t length, uint64_t vm_flags, void* arg);
 // Free a region of virtual memory
 void vmm_free(void* addr);
 
-void vmm_debug_print();
+void vmm_print_debug();
 
 #endif  // VMM_H

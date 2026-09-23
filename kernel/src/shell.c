@@ -110,7 +110,7 @@ static void shell_help(struct shell_context* context) {
 
 static void shell_ps(struct shell_context* context) {
     (void)context;
-    scheduler_debug_print();
+    scheduler_print_debug();
 }
 
 static void shell_timer(struct shell_context* context) {
@@ -120,5 +120,5 @@ static void shell_timer(struct shell_context* context) {
 
 static void shell_vmm(struct shell_context* context) {
     (void)context;    
-    vmm_debug_print();
+    vmm_print_debug();
 }

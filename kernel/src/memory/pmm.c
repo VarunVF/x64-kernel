@@ -287,7 +287,7 @@ void pmm_free(phys_addr address, uint64_t size) {
     pmm_assign(frame, frame + size, PMM_FREE_VALUE);
 }
 
-void pmm_debug_print(uint64_t frame, uint64_t count) {
+void pmm_print_debug(uint64_t frame, uint64_t count) {
     kprintf("PMM view of frames %d to %d: ", frame, frame + count);
     for (uint64_t i = frame; i < frame + count; i++) {
         kprintf(pmm_test_bit(i) == PMM_USED_VALUE ? "1" : "0");

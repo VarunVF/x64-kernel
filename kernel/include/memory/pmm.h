@@ -23,6 +23,6 @@ phys_addr pmm_alloc(uint64_t size);
 void pmm_free(phys_addr address, uint64_t size);
 
 // Debug: print bitmap state
-void pmm_debug_print(uint64_t frame, uint64_t count);
+void pmm_print_debug(uint64_t frame, uint64_t count);
 
 #endif  // PMM_H

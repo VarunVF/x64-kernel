@@ -103,7 +103,7 @@ struct cpu_status_t* schedule(struct cpu_status_t* context) {
     return current_process->context;
 }
 
-void scheduler_debug_print() {
+void scheduler_print_debug() {
     kprintf("Current process: '%s'\n", current_process->name);
     kprintf("Process list:\n");
     

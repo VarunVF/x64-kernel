@@ -365,7 +365,7 @@ void vmm_free(void* addr) {
     vmm_unmap_pages(pml4_virt, current->length / VMM_PAGE_SIZE, current->base);
 }
 
-void vmm_debug_print() {
+void vmm_print_debug() {
     kprintf("vm_objs list:\n");
 
     struct vm_object* current = vm_objs;

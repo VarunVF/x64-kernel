@@ -24,6 +24,6 @@ struct process {
 void scheduler_init();
 struct process* process_create(const char* name, void (*function)(void*), void* arg);
 struct cpu_status_t* schedule(struct cpu_status_t* context);
-void scheduler_debug_print();
+void scheduler_print_debug();
 
 #endif  // SCHEDULER_H
