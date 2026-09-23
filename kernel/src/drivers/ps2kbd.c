@@ -208,7 +208,7 @@ void ps2kbd_send_event(struct ps2kbd_state* ps2kbd, struct ps2kbd_event event) {
     }
 }
 
-void ps2kbd_irq(void* context) {
+struct cpu_status_t* ps2kbd_irq(struct cpu_status_t* regs, void* context) {
     uint8_t scancode = cpu_inb(0x60) & 0x7F;
     uint8_t press = cpu_inb(0x60) & 0x80;
 
@@ -216,6 +216,8 @@ void ps2kbd_irq(void* context) {
         scancode,
         press == 0 ? KBD_EVENT_TYPE_PRESS : KBD_EVENT_TYPE_RELEASE
     });
+
+    return regs;
 }
 
 void ps2kbd_print_debug(struct ps2kbd_state* ps2kbd) {

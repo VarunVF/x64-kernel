@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
-typedef void (*handler_fn)(void* context);
+#include "arch/x86_64/idt.h"
+
+typedef struct cpu_status_t* (*handler_fn)(struct cpu_status_t* regs, void* context);
 
 struct interrupt_handler_entry {
     handler_fn handler;

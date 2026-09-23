@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "arch/x86_64/idt.h"
+
 enum ps2kbd_event_type : uint8_t {
     KBD_EVENT_TYPE_PRESS,
     KBD_EVENT_TYPE_RELEASE
@@ -22,7 +24,7 @@ void ps2kbd_free(struct ps2kbd_state* ps2kbd, uint8_t vector);
 bool ps2kbd_has_event(struct ps2kbd_state* ps2kbd);
 bool ps2kbd_get_event(struct ps2kbd_state* ps2kbd, struct ps2kbd_event* out_event);
 void ps2kbd_send_event(struct ps2kbd_state* ps2kbd, struct ps2kbd_event event);
-void ps2kbd_irq(void* context);
+struct cpu_status_t* ps2kbd_irq(struct cpu_status_t* regs, void* context);
 void ps2kbd_print_debug(struct ps2kbd_state* ps2kbd);
 
 #endif  // PS2KBD_H

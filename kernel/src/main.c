@@ -18,6 +18,7 @@
 #include "memory/kmalloc.h"
 #include "memory/pmm.h"
 #include "memory/vmm.h"
+#include "scheduler.h"
 #include "shell.h"
 
 static const uint32_t text_color = 0x00ffffff;
@@ -100,6 +101,34 @@ void kernel_start(void) {
     cpu_halt_loop();
 }
 
+void test_fn_a(void* arg) {
+    while (true) {
+        cpu_disable_interrupts();
+        kprintf("Hello from thread A! arg=%d\n", (uint64_t)arg);
+        cpu_enable_interrupts();
+
+        for (int i = 0; i < 1000000; i++) {
+            cpu_io_wait();
+        }
+    }
+
+    cpu_halt_loop();
+}
+
+void test_fn_b(void* arg) {
+    while (true) {
+        cpu_disable_interrupts();
+        kprintf("Hello from thread B! arg=%d\n", (uint64_t)arg);
+        cpu_enable_interrupts();
+
+        for (int i = 0; i < 1000000; i++) {
+            cpu_io_wait();
+        }
+    }
+
+    cpu_halt_loop();
+}
+
 void kernel_init(void) {
     kprintf("Switched to new stack and page tables\n");
     
@@ -133,9 +162,10 @@ void kernel_init(void) {
         kprintf("Initialised PS/2 Keyboard\n");
     }
 
-    cpu_enable_interrupts();
-    shell_run(ps2kbd, framebuffer, clear_color);
-
-    ps2kbd_free(ps2kbd, ps2kbd_vector);
+    process_create("Kernel thread A", test_fn_a, (void*)7);
+    process_create("Kernel thread B", test_fn_b, (void*)1);
+    scheduler_init();
+    
+    // shell_run(ps2kbd, framebuffer, clear_color);
     cpu_halt_loop();
 }

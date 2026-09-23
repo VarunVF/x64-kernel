@@ -1,8 +1,9 @@
+#include "arch/x86_64/interrupt_handler.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
 #include "arch/x86_64/idt.h"
-#include "arch/x86_64/interrupt_handler.h"
 #include "cpu.h"
 #include "kprint.h"
 #include "macros.h"
@@ -62,7 +63,7 @@ static void dump_register(const char* name, uint64_t value) {
     kprintf("%s = %p\n", name, (void*)value);
 }
 
-static void dump_registers(struct interrupt_registers* regs) {
+static void dump_registers(struct cpu_status_t* regs) {
     dump_register("ss    ", regs->ss);
     dump_register("rsp   ", regs->rsp);
     dump_register("rflags", regs->rflags);
@@ -98,13 +99,19 @@ void interrupt_set_handler(uint8_t vector, handler_fn handler, void* context) {
     handler_entries[vector] = (struct interrupt_handler_entry){handler, context};
 }
 
-void interrupt_handler(struct interrupt_registers* regs) {
+struct cpu_status_t* interrupt_handler(struct cpu_status_t* regs) {
     nested_exceptions++;
-    if (nested_exceptions > MAX_NESTED_EXCEPTIONS)
-        panic("Too many nested exceptions (max " TO_STRING(MAX_NESTED_EXCEPTIONS) ")");
 
+    struct cpu_status_t* next_context = regs;
+    
     uint64_t vector = regs->interrupt_number;
     KASSERT(vector < 256);
+
+    if (nested_exceptions > MAX_NESTED_EXCEPTIONS) {
+        kprintf("CPU exception: v=%d\n", vector);
+        dump_registers(regs);
+        panic("Too many nested exceptions (max " TO_STRING(MAX_NESTED_EXCEPTIONS) ")");
+    }
     
     if (vector < 32) {
         // Exception
@@ -120,11 +127,13 @@ void interrupt_handler(struct interrupt_registers* regs) {
 
         struct interrupt_handler_entry* entry = &handler_entries[vector];
         if (entry->handler != NULL) {
-            entry->handler(entry->context);
+            next_context = entry->handler(regs, entry->context);
+        } else {
+            kprintf("No interrupt handler found for v=%d\n", vector);
         }
-        
-        lapic_send_eoi();
     }
-
+    
+    lapic_send_eoi();
     nested_exceptions--;
+    return next_context;
 }

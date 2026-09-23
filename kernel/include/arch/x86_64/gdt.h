@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#define GDT_KERNEL_CS 0x08
+#define GDT_KERNEL_SS 0x10
+#define GDT_USER_CS 0x1B
+#define GDT_USER_SS 0x23
+
 struct gdt_entry {
     uint16_t limit;
     uint16_t base_low;

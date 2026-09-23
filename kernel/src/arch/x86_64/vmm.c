@@ -140,6 +140,7 @@ int vmm_init() {
 
 static void vmm_add_region(virt_addr virt, size_t length, uint64_t vm_flags) {
     length = (size_t)align_up(length, VMM_PAGE_SIZE);
+    KASSERT(virt % VMM_PAGE_SIZE == 0);
 
     struct vm_object* current = vm_objs;
     struct vm_object* prev = NULL;
@@ -183,15 +184,6 @@ void vmm_add_initial_regions() {
     const virt_addr highest_virt_addr = (~(virt_addr)0);
     size_t kernel_heap_size = highest_virt_addr - (virt_addr)heap_start;
     vmm_add_region((virt_addr)heap_start, kernel_heap_size, VM_FLAG_WRITE);
-    
-    // Higher half direct map
-    KASSERT(memmap_request.response != NULL);
-    for (size_t i = 0; i < memmap_request.response->entry_count; i++) {
-        struct limine_memmap_entry* entry = memmap_request.response->entries[i];
-        if (entry->type != LIMINE_MEMMAP_BAD_MEMORY) {
-            vmm_add_region(phys_to_virt(entry->base), entry->length, VM_FLAG_WRITE);
-        }
-    }
 }
 
 void* vmm_kernel_table_root() {
@@ -339,6 +331,8 @@ void* vmm_alloc(size_t length, uint64_t vm_flags, void* arg) {
         return NULL;
 
     vmm_map_pages(pml4_virt, length / VMM_PAGE_SIZE, latest->base, phys, vm_flags);
+    
+    KASSERT(latest->base % VMM_PAGE_SIZE == 0);
     return (void*)latest->base;
 }
 

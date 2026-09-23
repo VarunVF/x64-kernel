@@ -72,7 +72,9 @@ isr_%1:
 isr_common:
     PUSH_ALL
     mov rdi, rsp            ; pass the pointer to the saved registers
-    call interrupt_handler
+    call interrupt_handler  ; returns the next task to run in rax
+
+    mov rsp, rax            ; switch tasks
 
     POP_ALL
     add rsp, 16             ; clean up the pushed error code and interrupt number

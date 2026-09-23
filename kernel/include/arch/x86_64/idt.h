@@ -18,7 +18,7 @@ struct idt_pointer {
     uintptr_t base;
 } __attribute__((packed));
 
-struct interrupt_registers {
+struct cpu_status_t {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
     uint64_t rdi, rsi, rbp, rbx, rdx, rcx, rax;
     uint64_t interrupt_number, error_code;

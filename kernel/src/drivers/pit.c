@@ -3,8 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "cpu.h"
+#include "arch/x86_64/idt.h"
 #include "arch/x86_64/interrupt_handler.h"
+#include "cpu.h"
+#include "scheduler.h"
 
 static uint64_t timer_ticks = 0;
 
@@ -22,7 +24,9 @@ uint64_t pit_get_ticks() {
     return timer_ticks;
 }
 
-void pit_irq(void* context) {
+struct cpu_status_t* pit_irq(struct cpu_status_t* regs, void* context) {
     (void)context;
+
     timer_ticks++;
+    return schedule(regs);
 }
