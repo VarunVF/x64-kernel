@@ -5,6 +5,12 @@
 
 #include <limine.h>
 
-void shell_run(struct ps2kbd_state* ps2kbd, struct limine_framebuffer* framebuffer, uint32_t clear_color);
+struct shell_context {
+    struct ps2kbd_state* ps2kbd;
+    struct limine_framebuffer* framebuffer;
+    uint32_t clear_color;
+};
+
+void shell_run(struct shell_context* arg);
 
 #endif  // SHELL_H

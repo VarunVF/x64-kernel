@@ -27,6 +27,7 @@ static const uint8_t pit_isa_irq = 0;
 static const uint8_t ps2kbd_isa_irq = 1;
 static const uint8_t pit_vector = 48;
 static const uint8_t ps2kbd_vector = 49;
+static const uint32_t pit_frequency_hz = 100;
 
 static struct limine_framebuffer *framebuffer;
 
@@ -101,34 +102,6 @@ void kernel_start(void) {
     cpu_halt_loop();
 }
 
-void test_fn_a(void* arg) {
-    while (true) {
-        cpu_disable_interrupts();
-        kprintf("Hello from thread A! arg=%d\n", (uint64_t)arg);
-        cpu_enable_interrupts();
-
-        for (int i = 0; i < 1000000; i++) {
-            cpu_io_wait();
-        }
-    }
-
-    cpu_halt_loop();
-}
-
-void test_fn_b(void* arg) {
-    while (true) {
-        cpu_disable_interrupts();
-        kprintf("Hello from thread B! arg=%d\n", (uint64_t)arg);
-        cpu_enable_interrupts();
-
-        for (int i = 0; i < 1000000; i++) {
-            cpu_io_wait();
-        }
-    }
-
-    cpu_halt_loop();
-}
-
 void kernel_init(void) {
     kprintf("Switched to new stack and page tables\n");
     
@@ -149,7 +122,7 @@ void kernel_init(void) {
     ioapic_regs = vmm_alloc(VMM_PAGE_SIZE, mmio_flags, ioapic_phys_base);
     KASSERT_MSG(lapic_init(lapic_regs) == 0, "Failed to initialise APIC");
 
-    pit_init(pit_vector, 100);
+    pit_init(pit_vector, pit_frequency_hz);
     ioapic_set_irq(ioapic_regs, &madt_info, pit_isa_irq, pit_vector, 0);
     kprintf("Initialised PIT\n");
 
@@ -162,10 +135,11 @@ void kernel_init(void) {
         kprintf("Initialised PS/2 Keyboard\n");
     }
 
-    process_create("Kernel thread A", test_fn_a, (void*)7);
-    process_create("Kernel thread B", test_fn_b, (void*)1);
+    struct shell_context shell_info = {
+        ps2kbd, framebuffer, clear_color
+    };
+    process_create("Kernel shell", (void*)shell_run, &shell_info);
     scheduler_init();
     
-    // shell_run(ps2kbd, framebuffer, clear_color);
     cpu_halt_loop();
 }

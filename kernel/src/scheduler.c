@@ -109,8 +109,8 @@ void scheduler_debug_print() {
     
     struct process* current = process_list;
     while (current != NULL) {
-        kprintf("    '%s' at %p: pid=%d, next=%p\n",
-            current->name, current, current->pid, current->next);
+        kprintf("    Process at %p: pid=%d, next=%p: '%s'\n",
+            current, current->pid, current->next, current->name);
         current = current->next;
     }
 

@@ -8,14 +8,10 @@
 #include "drivers/ps2kbd.h"
 #include "drivers/render.h"
 #include "kprint.h"
+#include "scheduler.h"
 #include "string_type.h"
 #include "memory/kmalloc.h"
 #include "memory/vmm.h"
-
-struct shell_context {
-    struct limine_framebuffer* framebuffer;
-    uint32_t clear_color;
-};
 
 typedef void (*shell_fn)(struct shell_context* context);
 
@@ -27,6 +23,7 @@ struct shell_command {
 static void shell_clear(struct shell_context* context);
 static void shell_heap(struct shell_context* context);
 static void shell_help(struct shell_context* context);
+static void shell_ps(struct shell_context* context);
 static void shell_timer(struct shell_context* context);
 static void shell_vmm(struct shell_context* context);
 
@@ -34,6 +31,7 @@ static const struct shell_command commands[] = {
     { "clear", shell_clear },
     { "heap", shell_heap },
     { "help", shell_help },
+    { "ps", shell_ps },
     { "timer", shell_timer },
     { "vmm", shell_vmm },
 };
@@ -46,27 +44,23 @@ static const char scancode_to_ascii[] = {
     '*', 0, ' '
 };
 
-void shell_run(struct ps2kbd_state* ps2kbd, struct limine_framebuffer* framebuffer, uint32_t clear_color) {
+void shell_run(struct shell_context* context) {
     struct string input = string_init("");
-    struct shell_context context = {
-        framebuffer,
-        clear_color
-    };
 
     kprintf("> ");
     while (true) {
-        if (!ps2kbd_has_event(ps2kbd)) {
+        if (!ps2kbd_has_event(context->ps2kbd)) {
             cpu_halt();
             continue;
         }
     
         struct ps2kbd_event event = {0};
-        ps2kbd_get_event(ps2kbd, &event);
+        ps2kbd_get_event(context->ps2kbd, &event);
         if (event.type == KBD_EVENT_TYPE_PRESS) {
             char ascii = scancode_to_ascii[event.scancode];
             if (ascii == '\b' && input.size > 0) {
                 render_move_pos(-1, 0);
-                render_clear_pos(framebuffer, clear_color);
+                render_clear_pos(context->framebuffer, context->clear_color);
                 string_pop(&input);
             } else if (ascii == '\n') {
                 kprintf("\n");
@@ -74,7 +68,7 @@ void shell_run(struct ps2kbd_state* ps2kbd, struct limine_framebuffer* framebuff
                 bool found_command = false;
                 for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
                     if (c_str_equal(input.elements, commands[i].name)) {
-                        commands[i].command(&context);
+                        commands[i].command(context);
                         found_command = true;
                         break;
                     }
@@ -112,6 +106,11 @@ static void shell_help(struct shell_context* context) {
         kprintf("%s ", commands[i].name);
     }
     kprintf("\n");
+}
+
+static void shell_ps(struct shell_context* context) {
+    (void)context;
+    scheduler_debug_print();
 }
 
 static void shell_timer(struct shell_context* context) {
