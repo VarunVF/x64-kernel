@@ -21,8 +21,6 @@
 #include "scheduler.h"
 #include "shell.h"
 
-static const uint32_t text_color = 0x00ffffff;
-static const uint32_t clear_color = 0x00000077;
 static const uint8_t pit_isa_irq = 0;
 static const uint8_t ps2kbd_isa_irq = 1;
 static const uint8_t pit_vector = 48;
@@ -48,7 +46,7 @@ void serial_putc(char c) {
 
 void render_putc(char c) {
     struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
-    render_char(framebuffer, c, text_color, clear_color);
+    render_char(framebuffer, c, RENDER_DEFAULT_TEXT_COLOR, RENDER_DEFAULT_CLEAR_COLOR);
 }
 
 // Our kernel's entry point.
@@ -71,7 +69,7 @@ void kernel_start(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    render_clear(framebuffer, clear_color);
+    render_clear(framebuffer, RENDER_DEFAULT_CLEAR_COLOR);
     kprint_add_output(render_putc);
 
     // Setup serial port for output
@@ -135,10 +133,10 @@ void kernel_init(void) {
         kprintf("Initialised PS/2 Keyboard\n");
     }
 
-    struct shell_context shell_info = {
-        ps2kbd, framebuffer, clear_color
+    struct shell_init_arg shell_arg = {
+        ps2kbd, framebuffer
     };
-    process_create("Kernel shell", (void*)shell_run, &shell_info);
+    process_create("Kernel shell", (void*)shell_run, &shell_arg);
     scheduler_init();
     
     cpu_halt_loop();

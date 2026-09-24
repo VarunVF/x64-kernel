@@ -58,8 +58,8 @@ void string_push(struct string* str, char c) {
 char string_pop(struct string* str) {
     char result = 0;
     if (str->size > 0) {
-        result = str->elements[str->size];
-        str->elements[str->size] = '\0';
+        result = str->elements[str->size - 1];
+        str->elements[str->size - 1] = '\0';
         str->size -= 1;
     }
 
