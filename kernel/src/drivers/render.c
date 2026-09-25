@@ -131,7 +131,7 @@ void render_char(struct limine_framebuffer* framebuffer, char glyph, uint32_t co
     render_pos.x++;
 }
 
-void render_char_at(struct limine_framebuffer* framebuffer, char glyph, uint32_t cell_x, uint32_t cell_y, uint32_t color) {
+void render_char_at(struct limine_framebuffer* framebuffer, char glyph, uint32_t cell_x, uint32_t cell_y, uint32_t color, uint32_t clear_color) {
     uint8_t glyph_index = (uint8_t)glyph;
     if (glyph_index > 127) {
         // Replace invalid character with '?'
@@ -144,8 +144,10 @@ void render_char_at(struct limine_framebuffer* framebuffer, char glyph, uint32_t
         uint32_t current_y = cell_y * RENDER_CELL_SIZE + l;
         
         for (uint8_t i = 0; i < RENDER_CELL_SIZE; i++) {
+            uint32_t current_x = cell_x * RENDER_CELL_SIZE + i;
+            render_pixel(framebuffer, current_x, current_y, clear_color);
+
             if ((glyph_data[l] & (1 << i))) {
-                uint32_t current_x = cell_x * RENDER_CELL_SIZE + i;
                 render_pixel(framebuffer, current_x, current_y, color);
             }
         }

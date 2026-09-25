@@ -17,6 +17,7 @@
 #include "memory/vmm.h"
 
 static void shell_fn_clear(struct shell_state* shell);
+static void shell_fn_color(struct shell_state* shell);
 static void shell_fn_heap(struct shell_state* shell);
 static void shell_fn_help(struct shell_state* shell);
 static void shell_fn_ps(struct shell_state* shell);
@@ -25,6 +26,7 @@ static void shell_fn_vmm(struct shell_state* shell);
 
 static const struct shell_fn_entry commands[] = {
     { "clear", shell_fn_clear },
+    { "color", shell_fn_color },
     { "heap", shell_fn_heap },
     { "help", shell_fn_help },
     { "ps", shell_fn_ps },
@@ -103,18 +105,15 @@ static void shell_write_str(struct shell_state* shell, const char* str) {
 }
 
 static void shell_refresh(struct shell_state* shell) {
-    render_clear(shell->framebuffer, shell->clear_color);
-    render_reset_pos();
-    
     struct shell_display* display = &shell->display;
     for (size_t y = 0; y < display->height; y++) {
         size_t x = 0;
         for (; x < display->width; x++) {
             size_t index = y * display->width + x;
             char c = display->cells[index].character;
-            render_char_at(shell->framebuffer, c, x, y, shell->text_color);
+            render_char_at(shell->framebuffer, c, x, y, shell->text_color, shell->clear_color);
         }
-        render_char_at(shell->framebuffer, '\n', x, y, shell->text_color);
+        render_char_at(shell->framebuffer, '\n', x, y, shell->text_color, shell->clear_color);
     }
 }
 
@@ -218,6 +217,29 @@ static void shell_fn_clear(struct shell_state* shell) {
     render_clear(shell->framebuffer, shell->clear_color);
     shell_clear(shell);
     render_reset_pos();
+}
+
+static void shell_fn_color(struct shell_state* shell) {
+    const uint32_t default_color = RENDER_DEFAULT_CLEAR_COLOR;
+    const uint32_t black = 0x00000000;
+    const uint32_t purple = 0x00770077;
+    const uint32_t red = 0x00770000;
+    
+    switch (shell->clear_color) {
+    case default_color:
+        shell->clear_color = black;
+        break;
+    case black:
+        shell->clear_color = purple;
+        break;
+    case purple:
+        shell->clear_color = red;
+        break;
+    case red:
+    default:
+        shell->clear_color = default_color;
+        break;
+    }
 }
 
 static void shell_fn_heap(struct shell_state* shell) {
