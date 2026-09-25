@@ -123,7 +123,7 @@ static struct shell_state shell_init(struct shell_init_arg* arg) {
 
     struct cell* cells = kmalloc(width_in_cells * height_in_cells * sizeof(struct cell));
     if (cells == NULL) {
-        panic("Falied to allocate memory for shell display");
+        panic("Failed to allocate memory for shell display");
     } else {
         kprintf("Allocated %dx%d shell display\n", width_in_cells, height_in_cells);
     }

@@ -2,10 +2,11 @@
 #define SCHEDULER_H
 
 #include <stddef.h>
-
-#include "arch/x86_64/idt.h"
+#include <stdint.h>
 
 #define PROCESS_NAME_MAX_LENGTH 64
+
+struct cpu_status_t;
 
 enum process_status {
     PROCESS_READY,
@@ -15,6 +16,7 @@ enum process_status {
 
 struct process {
     size_t pid;
+    uint8_t* stack_base;
     enum process_status status;
     struct cpu_status_t* context;
     char name[PROCESS_NAME_MAX_LENGTH];
@@ -23,6 +25,7 @@ struct process {
 
 void scheduler_init();
 struct process* process_create(const char* name, void (*function)(void*), void* arg);
+void process_exit();
 struct cpu_status_t* schedule(struct cpu_status_t* context);
 void scheduler_print_debug();
 
