@@ -35,6 +35,21 @@ struct vm_object {
     struct vm_object* next;
 };
 
+struct vm_flag_name {
+    uint64_t flag;
+    char letter;
+};
+
+static const struct vm_flag_name vm_flag_names[] = {
+    { VM_FLAG_WRITE, 'W' },
+    { VM_FLAG_EXEC,  'E' },
+    { VM_FLAG_USER,  'U' },
+    { VM_FLAG_MMIO,  'M' },
+    { VM_FLAG_UC,    'N' },
+};
+
+#define VM_FLAG_COUNT (sizeof(vm_flag_names) / sizeof(vm_flag_names[0]))
+
 extern volatile struct limine_memmap_request memmap_request;
 extern volatile struct limine_executable_file_request executable_file_request;
 extern volatile struct limine_executable_address_request executable_address_request;
@@ -365,13 +380,22 @@ void vmm_free(void* addr) {
     vmm_unmap_pages(pml4_virt, current->length / VMM_PAGE_SIZE, current->base);
 }
 
+void vm_flags_to_str(uint64_t vm_flags, char* output) {
+    for (size_t i = 0; i < VM_FLAG_COUNT; i++) {
+        output[i] = (vm_flags & vm_flag_names[i].flag) ? vm_flag_names[i].letter : '-';
+    }
+    output[VM_FLAG_COUNT] = '\0';
+}
+
 void vmm_print_debug(const struct kprint_sink* sink) {
-    kfprintf(sink, "vm_objs list:\n");
+    kfprintf(sink, "vm_objs list (W=write, E=execute, U=user, M=mmio, N=uncached):\n");
 
     struct vm_object* current = vm_objs;
     while (current != NULL) {
-        kfprintf(sink, "    vm_object at %p: base=%p, length=%p, flags=0b%b, next=%p\n",
-            current, current->base, current->length, current->vm_flags, current->next);
+        char vm_flags_str[VM_FLAG_COUNT + 1] = {0};
+        vm_flags_to_str(current->vm_flags, vm_flags_str);
+        kfprintf(sink, "    vm_object at %p: base=%p, length=%p, flags=%s, next=%p\n",
+            current, current->base, current->length, vm_flags_str, current->next);
         current = current->next;
     }
 

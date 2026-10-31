@@ -29,8 +29,9 @@ struct shell_state {
 typedef void (*shell_fn)(struct shell_state* shell);
 
 struct shell_fn_entry {
-    const char* name;
     const shell_fn command;
+    const char* name;
+    const char* help;
 };
 
 struct shell_init_arg {

@@ -26,14 +26,14 @@ static void shell_fn_vmm(struct shell_state* shell);
 static void shell_fn_panic(struct shell_state* shell);
 
 static const struct shell_fn_entry commands[] = {
-    { "clear", shell_fn_clear },
-    { "color", shell_fn_color },
-    { "heap", shell_fn_heap },
-    { "help", shell_fn_help },
-    { "ps", shell_fn_ps },
-    { "timer", shell_fn_timer },
-    { "vmm", shell_fn_vmm },
-    { "panic", shell_fn_panic },
+    { shell_fn_clear, "clear", "clear the shell screen" },
+    { shell_fn_color, "color", "cycle the shell background color" },
+    { shell_fn_heap, "heap", "list heap-allocated objects" },
+    { shell_fn_help, "help", "show this help message" },
+    { shell_fn_ps, "ps", "list active processes" },
+    { shell_fn_timer, "timer", "print timer ticks" },
+    { shell_fn_vmm, "vmm", "list VMM entries" },
+    { shell_fn_panic, "panic", "trigger a panic" },
 };
 
 static const char scancode_to_ascii[] = {
@@ -255,9 +255,9 @@ static void shell_fn_heap(struct shell_state* shell) {
 
 static void shell_fn_help(struct shell_state* shell) {
     struct kprint_sink sink = { shell_sink_putc, shell };
-    kfprintf(&sink, "Available shell commands: ");
+    kfprintf(&sink, "Available shell commands:\n");
     for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
-        kfprintf(&sink, "%s ", commands[i].name);
+        kfprintf(&sink, "%s - %s\n", commands[i].name, commands[i].help);
     }
     kfprintf(&sink, "\n");
 }
