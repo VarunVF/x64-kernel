@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "kprint.h"
+
 #define PROCESS_NAME_MAX_LENGTH 64
 
 struct cpu_status_t;
@@ -27,6 +29,6 @@ void scheduler_init();
 struct process* process_create(const char* name, void (*function)(void*), void* arg);
 void process_exit();
 struct cpu_status_t* schedule(struct cpu_status_t* context);
-void scheduler_print_debug();
+void scheduler_print_debug(const struct kprint_sink* sink);
 
 #endif  // SCHEDULER_H

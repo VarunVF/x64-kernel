@@ -72,19 +72,19 @@ int kmalloc_init() {
     return 0;
 }
 
-void kmalloc_print_debug() {
-    kprintf("Heap start at %p\n", heap_start);
-    kprintf("Heap limit at %p\n", heap_limit);
-    kprintf("Heap contents:\n");
+void kmalloc_print_debug(const struct kprint_sink* sink) {
+    kfprintf(sink, "Heap start at %p\n", heap_start);
+    kfprintf(sink, "Heap limit at %p\n", heap_limit);
+    kfprintf(sink, "Heap contents:\n");
     
     struct heap_node* current = heap_start;
     while (current != NULL) {
-        kprintf("    Heap node at %p: prev=%p, next=%p, size=%d, is_used=%d\n",
+        kfprintf(sink, "    Heap node at %p: prev=%p, next=%p, size=%d, is_used=%d\n",
             current, current->prev, current->next, current->size, (int)current->is_used);
         current = current->next;
     }
 
-    kprintf("End of heap contents.\n");
+    kfprintf(sink, "End of heap contents.\n");
 }
 
 void* kmalloc(size_t size) {

@@ -23,6 +23,7 @@ static void shell_fn_help(struct shell_state* shell);
 static void shell_fn_ps(struct shell_state* shell);
 static void shell_fn_timer(struct shell_state* shell);
 static void shell_fn_vmm(struct shell_state* shell);
+static void shell_fn_panic(struct shell_state* shell);
 
 static const struct shell_fn_entry commands[] = {
     { "clear", shell_fn_clear },
@@ -32,6 +33,7 @@ static const struct shell_fn_entry commands[] = {
     { "ps", shell_fn_ps },
     { "timer", shell_fn_timer },
     { "vmm", shell_fn_vmm },
+    { "panic", shell_fn_panic },
 };
 
 static const char scancode_to_ascii[] = {
@@ -87,6 +89,10 @@ static void shell_write_char(struct shell_state* shell, char c) {
         display->cells[index] = make_cell(c);
         display->x++;
     }
+}
+
+static void shell_sink_putc(char c, void* context) {
+    shell_write_char(context, c);
 }
 
 static void shell_erase_char(struct shell_state* shell) {
@@ -243,30 +249,36 @@ static void shell_fn_color(struct shell_state* shell) {
 }
 
 static void shell_fn_heap(struct shell_state* shell) {
-    (void)shell;
-    kmalloc_print_debug();
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    kmalloc_print_debug(&sink);
 }
 
 static void shell_fn_help(struct shell_state* shell) {
-    shell_write_str(shell, "Available shell commands: ");
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    kfprintf(&sink, "Available shell commands: ");
     for (size_t i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
-        shell_write_str(shell, commands[i].name);
-        shell_write_char(shell, ' ');
+        kfprintf(&sink, "%s ", commands[i].name);
     }
-    shell_write_str(shell, "\n");
+    kfprintf(&sink, "\n");
 }
 
 static void shell_fn_ps(struct shell_state* shell) {
-    (void)shell;
-    scheduler_print_debug();
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    scheduler_print_debug(&sink);
 }
 
 static void shell_fn_timer(struct shell_state* shell) {
-    (void)shell;
-    kprintf("Timer ticks: %d\n", pit_get_ticks());
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    kfprintf(&sink, "Timer ticks: %d\n", pit_get_ticks());
 }
 
 static void shell_fn_vmm(struct shell_state* shell) {
-    (void)shell;
-    vmm_print_debug();
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    vmm_print_debug(&sink);
+}
+
+static void shell_fn_panic(struct shell_state* shell) {
+    struct kprint_sink sink = { shell_sink_putc, shell };
+    kfprintf(&sink, "Entering panic.\n");
+    panic("Triggered by user command");
 }

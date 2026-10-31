@@ -18,6 +18,7 @@
 #include "memory/kmalloc.h"
 #include "memory/pmm.h"
 #include "memory/vmm.h"
+#include "panic.h"
 #include "scheduler.h"
 #include "shell.h"
 
@@ -49,6 +50,11 @@ void render_putc(char c) {
     render_char(framebuffer, c, RENDER_DEFAULT_TEXT_COLOR, RENDER_DEFAULT_CLEAR_COLOR);
 }
 
+static void panic_reset_display(void) {
+    render_clear(framebuffer, RENDER_DEFAULT_CLEAR_COLOR);
+    render_reset_pos();
+}
+
 // Our kernel's entry point.
 void kernel_start(void) {
     cpu_disable_interrupts();
@@ -68,6 +74,7 @@ void kernel_start(void) {
 
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
+    panic_register(panic_reset_display);
 
     render_clear(framebuffer, RENDER_DEFAULT_CLEAR_COLOR);
     kprint_add_output(render_putc);
@@ -133,6 +140,7 @@ void kernel_init(void) {
         kprintf("Initialised PS/2 Keyboard\n");
     }
 
+    render_reset_pos();
     struct shell_init_arg shell_arg = {
         ps2kbd, framebuffer
     };

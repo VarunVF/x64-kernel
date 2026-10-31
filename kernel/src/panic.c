@@ -1,5 +1,6 @@
 #include "panic.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -7,6 +8,13 @@
 #include "kprint.h"
 
 #define MAX_STACK_TRACE_DEPTH 32
+
+static void (*before_panic)(void) = NULL;
+static bool is_panicking = false;
+
+void panic_register(void (*callback)(void)) {
+    before_panic = callback;
+}
 
 static void print_stack_trace(uint64_t* instruction_ptr) {
     kprintf("Stack trace:\n");
@@ -27,6 +35,16 @@ static void print_stack_trace(uint64_t* instruction_ptr) {
 
 void panic(const char* reason) {
     cpu_disable_interrupts();
+    
+    if (is_panicking) {
+        kprintf("Nested panic: %s\n", reason);
+        cpu_halt_loop();
+    }
+    is_panicking = true;
+
+    if (before_panic != NULL) {
+        before_panic();
+    }
     
     kprintf("\nKernel panic! Reason: %s\n", reason);
     print_stack_trace(CPU_READ_INSTRUCTION_PTR());

@@ -365,15 +365,15 @@ void vmm_free(void* addr) {
     vmm_unmap_pages(pml4_virt, current->length / VMM_PAGE_SIZE, current->base);
 }
 
-void vmm_print_debug() {
-    kprintf("vm_objs list:\n");
+void vmm_print_debug(const struct kprint_sink* sink) {
+    kfprintf(sink, "vm_objs list:\n");
 
     struct vm_object* current = vm_objs;
     while (current != NULL) {
-        kprintf("    vm_object at %p: base=%p, length=%p, flags=0b%b, next=%p\n",
+        kfprintf(sink, "    vm_object at %p: base=%p, length=%p, flags=0b%b, next=%p\n",
             current, current->base, current->length, current->vm_flags, current->next);
         current = current->next;
     }
 
-    kprintf("End of vm_objs list.\n");
+    kfprintf(sink, "End of vm_objs list.\n");
 }

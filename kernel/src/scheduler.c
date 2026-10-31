@@ -12,6 +12,7 @@
 #include "macros.h"
 #include "memory/kmalloc.h"
 #include "memory/vmm.h"
+#include "types.h"
 
 #define STACK_SIZE (4 * VMM_PAGE_SIZE)
 
@@ -73,10 +74,12 @@ struct process* process_create(const char* name, void (*function)(void*), void* 
     }
     memset(process->stack_base, 0, STACK_SIZE);
     uint8_t* stack_top = process->stack_base + STACK_SIZE;
-    struct cpu_status_t* frame = (struct cpu_status_t*)(stack_top - sizeof(struct cpu_status_t));
+    uint64_t* ret_addr = (uint64_t*)(stack_top - 8);
+    *ret_addr = (virt_addr)process_exit;
+    struct cpu_status_t* frame = (struct cpu_status_t*)((uint8_t*)ret_addr - sizeof(struct cpu_status_t));
 
     frame->ss = GDT_KERNEL_SS;
-    frame->rsp = (uint64_t)stack_top;
+    frame->rsp = (uint64_t)ret_addr;
     frame->rflags = 0x202;
     frame->cs = GDT_KERNEL_CS;
     frame->rip = (uint64_t)function;
@@ -133,16 +136,16 @@ struct cpu_status_t* schedule(struct cpu_status_t* context) {
     return current_process->context;
 }
 
-void scheduler_print_debug() {
-    kprintf("Current process: '%s'\n", current_process->name);
-    kprintf("Process list:\n");
+void scheduler_print_debug(const struct kprint_sink* sink) {
+    kfprintf(sink, "Current process: '%s'\n", current_process->name);
+    kfprintf(sink, "Process list:\n");
     
     struct process* current = process_list;
     while (current != NULL) {
-        kprintf("    Process at %p: pid=%d, next=%p: '%s'\n",
+        kfprintf(sink, "    Process at %p: pid=%d, next=%p: '%s'\n",
             current, current->pid, current->next, current->name);
         current = current->next;
     }
 
-    kprintf("End of process list.\n");
+    kfprintf(sink, "End of process list.\n");
 }

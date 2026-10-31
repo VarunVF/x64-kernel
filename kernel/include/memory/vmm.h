@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "kprint.h"
 #include "pmm.h"
 #include "types.h"
 
@@ -55,6 +56,6 @@ void* vmm_alloc(size_t length, uint64_t vm_flags, void* arg);
 // Free a region of virtual memory
 void vmm_free(void* addr);
 
-void vmm_print_debug();
+void vmm_print_debug(const struct kprint_sink* sink);
 
 #endif  // VMM_H
