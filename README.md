@@ -1,8 +1,23 @@
 # x64-kernel
 
-A basic x86-64 kernel in C using Limine.
+A hobby x86-64 kernel in C, booted with Limine.
 
-## How to use this?
+![Screenshot of kernel in QEMU](images/shell.png)
+
+## Features
+
+- Boots via Limine (BIOS and UEFI)
+- GDT, IDT and CPU exception handling
+- Bitmap physical frame allocator, 4-level paging VMM, kernel heap
+- ACPI parsing (RSDP/MADT) to find the Local APIC and I/O APIC
+- PIT-driven preemptive round-robin scheduler (kernel tasks)
+- PS/2 keyboard driver and framebuffer text rendering
+- Interactive shell with commands like `help`, `ps`, `heap`, `vmm`, `timer`, `color`, `clear`
+- Kernel panics with stack trace
+
+Todo: userspace, syscalls, filesystem, per-process address spaces, guard pages for task stacks, W^X kernel mappings, interrupt-safe heap.
+
+## Building / Running
 
 ### Dependencies
 
@@ -27,12 +42,22 @@ make TOOLCHAIN_PREFIX=x86_64-elf-
 
 ### Makefile targets
 
-Running `make all` will compile the kernel (from the `kernel/` directory) and then generate a bootable ISO image.
+| Target         | Action                                                                        |
+|----------------|-------------------------------------------------------------------------------|
+| `make all`     | Build the kernel and a bootable ISO                                           |
+| `make all-hdd` | Build the kernel and a raw HDD image                                          |
+| `make run`     | Build the kernel and a bootable ISO, then run it using `qemu` (if installed)  |
+| `make run-hdd` | Build the kernel and a raw HDD image, then run it using `qemu` (if installed) |
+| `make run-uefi` | Like `make run`, but boots `qemu` with UEFI-compatible firmware              |
+| `make run-hdd-uefi` | Like `make run-hdd`, but boots `qemu` with UEFI-compatible firmware      |
 
-Running `make all-hdd` will compile the kernel and then generate a raw image suitable to be flashed onto a USB stick or hard drive/SSD.
+A raw HDD image is suitable to be flashed onto a USB stick or hard drive/SSD.
 
-Running `make run` will build the kernel and a bootable ISO (equivalent to make all) and then run it using `qemu` (if installed).
+## Credit
 
-Running `make run-hdd` will build the kernel and a raw HDD image (equivalent to make all-hdd) and then run it using `qemu` (if installed).
+These projects and resources were helpful:
 
-The `run-uefi` and `run-hdd-uefi` targets are equivalent to their non `-uefi` counterparts except that they boot `qemu` using a UEFI-compatible firmware.
+- Build system and boot setup based on [Limine C Template](https://github.com/Limine-Bootloader/limine-c-template-x86-64)
+- [Osdev-Notes](https://codeberg.org/dreamportdev/Osdev-Notes)
+- [osdev.org](https://wiki.osdev.org/Expanded_Main_Page)
+- [osdev.wiki](https://osdev.wiki/wiki/Expanded_Main_Page)

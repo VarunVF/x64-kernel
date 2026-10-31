@@ -4,7 +4,7 @@
 # Default user QEMU flags. These are appended to the QEMU command calls.
 QEMUFLAGS := -m 2G -serial stdio -enable-kvm
 
-override IMAGE_NAME := template
+override IMAGE_NAME := x64-kernel
 
 # Toolchain for building the 'limine' executable for the host.
 HOST_CC := cc
