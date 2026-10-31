@@ -39,6 +39,6 @@ struct shell_init_arg {
     struct limine_framebuffer* framebuffer;
 };
 
-void shell_run(struct shell_init_arg* arg);
+void shell_run(void* shell_init_arg);
 
 #endif  // SHELL_H

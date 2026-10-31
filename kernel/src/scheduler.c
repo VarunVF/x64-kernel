@@ -19,6 +19,7 @@
 static uint64_t next_free_pid = 0;
 static struct process* process_list = NULL;
 static struct process* current_process = NULL;
+static struct process* idle_process = NULL;
 
 static void process_add(struct process* process) {
     if (process_list == NULL) {
@@ -37,24 +38,30 @@ static void process_add(struct process* process) {
     process->next = NULL;
 }
 
-void process_exit() {
+void process_exit(void) {
+    KASSERT(current_process != idle_process);
+
     current_process->status = PROCESS_DEAD;
     cpu_halt_loop();  // TODO: or yield
 }
 
-static void init_task(void* arg) {
-    (void)arg;
+void scheduler_init(void) {
+    idle_process = kmalloc(sizeof(struct process));
+    KASSERT(idle_process != NULL);
+    memset(idle_process, 0, sizeof(*idle_process));
+    strncpy(idle_process->name, "Idle", PROCESS_NAME_MAX_LENGTH);
+    idle_process->pid = next_free_pid++;
+    idle_process->status = PROCESS_RUNNING;
+    idle_process->stack_base = NULL;
+    idle_process->context = NULL;
 
-    cpu_enable_interrupts();  // starts scheduling via PIT
-    process_exit();
+    // This thread (boot thread) becomes the idle process.
+    current_process = idle_process;
 }
 
-void scheduler_init() {
-    struct process* init = process_create("Init", init_task, NULL);
-    process_add(init);
-    current_process = init;
-
-    init_task(init);  // enter this context before scheduling
+void scheduler_start(void) {
+    // starts scheduling via PIT
+    cpu_enable_interrupts();
 }
 
 struct process* process_create(const char* name, void (*function)(void*), void* arg) {
@@ -70,6 +77,7 @@ struct process* process_create(const char* name, void (*function)(void*), void* 
     
     process->stack_base = vmm_alloc(STACK_SIZE, VM_FLAG_WRITE, NULL);
     if (process->stack_base == NULL) {
+        kfree(process);
         return NULL;
     }
     memset(process->stack_base, 0, STACK_SIZE);
@@ -95,14 +103,36 @@ struct process* process_create(const char* name, void (*function)(void*), void* 
     return process;
 }
 
-static void process_remove(struct process* previous, struct process* current) {
-    if (previous != NULL) {
-        previous->next = current->next;
+static struct process* find_ready_process(struct process* start, struct process* stop) {
+    for (struct process* p = start; p != stop; p = p->next) {
+        if (p->status == PROCESS_READY) {
+            return p;
+        }
     }
-    current->next = NULL;
+    return NULL;
+}
 
-    vmm_free(current->stack_base);
-    kfree(current);
+static void reap_dead_processes(void) {
+    struct process* prev = NULL;
+    struct process* p = process_list;
+
+    while (p != NULL) {
+        struct process* next = p->next;
+
+        if (p->status == PROCESS_DEAD && p != current_process) {
+            if (prev == NULL) {
+                process_list = next;  // removing the head
+            } else {
+                prev->next = next;
+            }
+            vmm_free(p->stack_base);
+            kfree(p);
+            // prev stays the same
+        } else {
+            prev = p;
+        }
+        p = next;
+    }
 }
 
 struct cpu_status_t* schedule(struct cpu_status_t* context) {
@@ -114,26 +144,27 @@ struct cpu_status_t* schedule(struct cpu_status_t* context) {
         current_process->status = PROCESS_READY;
     }
 
-    // Select the next process
-    while (true) {
-        struct process* previous_process = current_process;
+    reap_dead_processes();
 
-        if (current_process->next != NULL) {
-            current_process = current_process->next;
-        } else {
-            current_process = process_list;
-        }
-
-        if (current_process->status == PROCESS_DEAD) {
-            process_remove(previous_process, current_process);
-        } else {
-            current_process->status = PROCESS_RUNNING;
-            break;
-        }
+    struct process* start = current_process->next;
+    if (current_process == idle_process || current_process->next == NULL) {
+        start = process_list;
     }
 
-    // Return the saved context of the next process
-    return current_process->context;
+    // Find the next ready task
+    struct process* next = find_ready_process(start, NULL);
+    if (next == NULL) {
+        // Wrap around to the start.
+        next = find_ready_process(process_list, start);
+    }
+    if (next == NULL) {
+        // No tasks are ready.
+        next = idle_process;
+    }
+
+    next->status = PROCESS_RUNNING;
+    current_process = next;
+    return next->context;
 }
 
 void scheduler_print_debug(const struct kprint_sink* sink) {
@@ -141,6 +172,8 @@ void scheduler_print_debug(const struct kprint_sink* sink) {
     kfprintf(sink, "Process list:\n");
     
     struct process* current = process_list;
+    kfprintf(sink, "    Process at %p: pid=%d, next=%p: '%s'\n",
+        idle_process, idle_process->pid, idle_process->next, idle_process->name);
     while (current != NULL) {
         kfprintf(sink, "    Process at %p: pid=%d, next=%p: '%s'\n",
             current, current->pid, current->next, current->name);

@@ -139,13 +139,14 @@ void kernel_init(void) {
         ioapic_set_irq(ioapic_regs, &madt_info, ps2kbd_isa_irq, ps2kbd_vector, 0);
         kprintf("Initialised PS/2 Keyboard\n");
     }
-
-    render_reset_pos();
+    
     struct shell_init_arg shell_arg = {
         ps2kbd, framebuffer
     };
-    process_create("Kernel shell", (void*)shell_run, &shell_arg);
+
+    // Setup scheduling
     scheduler_init();
-    
-    cpu_halt_loop();
+    process_create("Kernel shell", shell_run, &shell_arg);
+    scheduler_start();
+    cpu_halt_loop();  // This loop is the idle task.
 }

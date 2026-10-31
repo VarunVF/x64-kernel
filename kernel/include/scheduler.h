@@ -25,9 +25,10 @@ struct process {
     struct process* next;
 };
 
-void scheduler_init();
+void scheduler_init(void);
+void scheduler_start(void);
 struct process* process_create(const char* name, void (*function)(void*), void* arg);
-void process_exit();
+void process_exit(void);
 struct cpu_status_t* schedule(struct cpu_status_t* context);
 void scheduler_print_debug(const struct kprint_sink* sink);
 

@@ -157,7 +157,8 @@ static void shell_free(struct shell_state* shell) {
     kfree(shell->display.cells);
 }
 
-void shell_run(struct shell_init_arg* arg) {
+void shell_run(void* shell_init_arg) {
+    struct shell_init_arg* arg = shell_init_arg;
     struct shell_state shell = shell_init(arg);
     struct string input = string_init("");
     
